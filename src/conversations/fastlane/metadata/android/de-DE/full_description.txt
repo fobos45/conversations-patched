@@ -1,0 +1,28 @@
+Ein freier und quelloffener Jabber/XMPP-Client für Android. Einfach zu bedienen, zuverlässig, akkuschonend. Mit integrierter Unterstützung für Bilder, Gruppenchats und Standortfreigabe. Standardmäßig durchgängig Ende-zu-Ende verschlüsselt. Verbindet sich mit allen modernen Jabber-, XMPP- und Snikket-Servern.
+
+<b>Funktionen</b>
+• Ende-zu-Ende-Verschlüsselung mit OMEMO oder OpenPGP
+• Senden und Empfangen von Bildern und anderen Dateitypen
+• Verschlüsselte Audio- und Videoanrufe (DTLS-SRTP)
+• Erweiterte Machine-in-the-Middle-Erkennung über Channel Binding (Opt-in erforderlich)
+• Teilen des eigenen Standorts
+• Senden von Sprachnachrichten
+• Emoji-Reaktionen
+• Anzeige, wenn der Kontakt die Nachricht gelesen hat
+• Intuitive Benutzeroberfläche gemäß den Android-Designrichtlinien (Material Design 3 mit dynamischen Farben)
+• Hochauflösende Kontaktfotos (Profilbilder)
+• Synchronisierung mit Desktop-Clients (Gajim und Dino)
+• Private Gruppenchats und öffentliche Konferenzen (mit Unterstützung für Lesezeichen)
+• Nachrichtenmoderation für Administratoren in öffentlichen Konferenzen
+• Adressbuchintegration
+• Mehrere Konten (einheitlicher Posteingang)
+• Push-Benachrichtigungen an andere kompatible Apps wie Tusky, Ltt.rs, DAVx⁵ und Fennec über UnifiedPush
+• Sehr geringe Auswirkungen auf die Akkulaufzeit
+
+<i><b>Hinweis:</b></i> Einige dieser Funktionen erfordern Serverunterstützung. Gehe zu den Kontodetails und wähle „Server-Info” aus dem Untermenü, um zu überprüfen, ob dein Server über alle erforderlichen Erweiterungen verfügt.
+
+<b>Designprinzipien</b>
+• So schön und benutzerfreundlich wie möglich sein, ohne dabei die Sicherheit oder die Privatsphäre zu beeinträchtigen
+• Auf bestehenden, bewährten Protokollen aufbauen
+• Kein Google-Konto oder speziell Firebase Cloud Messaging (FCM) erfordern
+• So wenig Berechtigungen wie möglich erfordern

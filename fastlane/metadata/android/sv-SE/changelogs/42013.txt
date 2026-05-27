@@ -1,0 +1,1 @@
+* Åtgärdat problem med "Ingen anslutning" på Android 7.1

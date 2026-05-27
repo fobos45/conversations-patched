@@ -1,0 +1,1 @@
+* Åtgärdat återinfört fel vid P2P-filöverföring

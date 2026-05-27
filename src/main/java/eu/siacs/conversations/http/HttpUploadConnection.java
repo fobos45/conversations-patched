@@ -1,0 +1,241 @@
+package eu.siacs.conversations.http;
+
+import static eu.siacs.conversations.utils.Random.SECURE_RANDOM;
+
+import android.util.Log;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
+import eu.siacs.conversations.Config;
+import eu.siacs.conversations.entities.Account;
+import eu.siacs.conversations.entities.Message;
+import eu.siacs.conversations.entities.Transferable;
+import eu.siacs.conversations.services.AbstractConnectionManager;
+import eu.siacs.conversations.services.DebouncedInterfaceUpdater;
+import eu.siacs.conversations.services.XmppConnectionService;
+import eu.siacs.conversations.utils.CryptoHelper;
+import eu.siacs.conversations.utils.MimeUtils;
+import eu.siacs.conversations.xmpp.manager.HttpUploadManager;
+import im.conversations.android.model.TransportSecurity;
+import java.io.File;
+import java.io.IOException;
+import java.util.concurrent.Future;
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
+
+public class HttpUploadConnection
+        implements Transferable, AbstractConnectionManager.ProgressListener {
+
+    private final HttpConnectionManager mHttpConnectionManager;
+    private final XmppConnectionService mXmppConnectionService;
+    private final DebouncedInterfaceUpdater debouncedInterfaceUpdater;
+    private boolean delayed = false;
+    private Upload upload;
+    private final Message message;
+    private HttpUploadManager.Slot slot;
+
+    private long transmitted = 0;
+    private Call mostRecentCall;
+    private ListenableFuture<HttpUploadManager.Slot> slotFuture;
+
+    public HttpUploadConnection(
+            final Message message, final HttpConnectionManager httpConnectionManager) {
+        this.message = message;
+        this.mHttpConnectionManager = httpConnectionManager;
+        this.mXmppConnectionService = httpConnectionManager.getXmppConnectionService();
+        this.debouncedInterfaceUpdater = new DebouncedInterfaceUpdater(this.mXmppConnectionService);
+    }
+
+    @Override
+    public boolean start() {
+        return false;
+    }
+
+    @Override
+    public int getStatus() {
+        return STATUS_UPLOADING;
+    }
+
+    @Override
+    public Long getFileSize() {
+        return upload == null ? null : upload.totalSize();
+    }
+
+    @Override
+    public int getProgress() {
+        final var upload = this.upload;
+        if (upload == null) {
+            return 0;
+        }
+        return (int) ((((double) transmitted) / upload.totalSize()) * 100);
+    }
+
+    @Override
+    public void cancel() {
+        final ListenableFuture<HttpUploadManager.Slot> slotFuture = this.slotFuture;
+        if (slotFuture != null && !slotFuture.isDone()) {
+            if (slotFuture.cancel(true)) {
+                Log.d(Config.LOGTAG, "cancelled slot requester");
+            }
+        }
+        final Call call = this.mostRecentCall;
+        if (call != null && !call.isCanceled()) {
+            call.cancel();
+            Log.d(Config.LOGTAG, "cancelled HTTP request");
+        }
+    }
+
+    private void fail(String errorMessage) {
+        finish();
+        final Call call = this.mostRecentCall;
+        final Future<HttpUploadManager.Slot> slotFuture = this.slotFuture;
+        final boolean cancelled =
+                (call != null && call.isCanceled())
+                        || (slotFuture != null && slotFuture.isCancelled());
+        mXmppConnectionService.markMessage(
+                message,
+                Message.STATUS_SEND_FAILED,
+                cancelled ? Message.ERROR_MESSAGE_CANCELLED : errorMessage);
+    }
+
+    private void finish() {
+        mHttpConnectionManager.finishUploadConnection(this);
+        message.setTransferable(null);
+    }
+
+    public void init(final boolean delay) {
+        final Account account = message.getConversation().getAccount();
+        final var connection = account.getXmppConnection();
+        final var file = mXmppConnectionService.getFileBackend().getFile(message, false);
+        final String mime;
+        if (message.getEncryption() == Message.ENCRYPTION_PGP
+                || message.getEncryption() == Message.ENCRYPTION_DECRYPTED) {
+            mime = "application/pgp-encrypted";
+        } else {
+            mime = MimeUtils.getMimeType(file);
+        }
+        final long originalFileSize = file.length();
+        final TransportSecurity transportSecurity;
+        this.delayed = delay;
+        if (Config.ENCRYPT_ON_HTTP_UPLOADED
+                || message.getEncryption() == Message.ENCRYPTION_AXOLOTL) {
+            final var keyIv = new byte[44];
+            SECURE_RANDOM.nextBytes(keyIv);
+            transportSecurity = TransportSecurity.ofKeyAndIv(keyIv);
+        } else {
+            transportSecurity = null;
+        }
+        final long totalSize = originalFileSize + (transportSecurity != null ? 16 : 0);
+        this.upload = new Upload(file, totalSize, mime, transportSecurity);
+        message.resetFileParams();
+        this.slotFuture =
+                connection
+                        .getManager(HttpUploadManager.class)
+                        .request(upload.file(), mime, upload.totalSize());
+        Futures.addCallback(
+                this.slotFuture,
+                new FutureCallback<>() {
+                    @Override
+                    public void onSuccess(@Nullable HttpUploadManager.Slot result) {
+                        HttpUploadConnection.this.slot = result;
+                        try {
+                            HttpUploadConnection.this.upload();
+                        } catch (final Exception e) {
+                            fail(e.getMessage());
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(@NonNull final Throwable throwable) {
+                        Log.d(
+                                Config.LOGTAG,
+                                account.getJid().asBareJid() + ": unable to request slot",
+                                throwable);
+                        // TODO consider fall back to jingle in 1-on-1 chats with exactly one online
+                        // presence
+                        fail(throwable.getMessage());
+                    }
+                },
+                MoreExecutors.directExecutor());
+        message.setTransferable(this);
+        mXmppConnectionService.markMessage(message, Message.STATUS_UNSEND);
+    }
+
+    private void upload() {
+        final OkHttpClient client =
+                mHttpConnectionManager.buildHttpClient(
+                        slot.put, message.getConversation().getAccount(), 0, true);
+        // TODO progress Listener can be replaced with a callable
+        final RequestBody requestBody = AbstractConnectionManager.requestBody(this.upload, this);
+        final Request request =
+                new Request.Builder().url(slot.put).put(requestBody).headers(slot.headers).build();
+        Log.d(Config.LOGTAG, "uploading file to " + slot.put);
+        this.mostRecentCall = client.newCall(request);
+        this.mostRecentCall.enqueue(
+                new Callback() {
+                    @Override
+                    public void onFailure(@NonNull Call call, IOException e) {
+                        Log.d(Config.LOGTAG, "http upload failed", e);
+                        fail(e.getMessage());
+                    }
+
+                    @Override
+                    public void onResponse(@NonNull Call call, @NonNull Response response) {
+                        final int code = response.code();
+                        if (code == 200 || code == 201) {
+                            final var file = upload.file;
+                            final var transportSecurity = upload.transportSecurity();
+                            Log.d(Config.LOGTAG, "finished uploading file");
+                            final String get;
+                            if (transportSecurity != null) {
+                                get =
+                                        AesGcmURL.toAesGcmUrl(
+                                                slot.get
+                                                        .newBuilder()
+                                                        .fragment(
+                                                                CryptoHelper.bytesToHex(
+                                                                        transportSecurity
+                                                                                .asBytes()))
+                                                        .build());
+                            } else {
+                                get = slot.get.toString();
+                            }
+                            mXmppConnectionService.getFileBackend().updateFileParams(message, get);
+                            mXmppConnectionService.updateMessage(message);
+                            mXmppConnectionService.getFileBackend().updateMediaScanner(file);
+                            finish();
+                            if (!message.isPrivateMessage()) {
+                                message.setCounterpart(
+                                        message.getConversation().getAddress().asBareJid());
+                            }
+                            mXmppConnectionService.resendMessage(message, delayed);
+                        } else {
+                            Log.d(
+                                    Config.LOGTAG,
+                                    "http upload failed because response code was " + code);
+                            fail("http upload failed because response code was " + code);
+                        }
+                    }
+                });
+    }
+
+    public Message getMessage() {
+        return message;
+    }
+
+    @Override
+    public void onProgress(final long progress) {
+        this.transmitted = progress;
+        this.debouncedInterfaceUpdater.run();
+    }
+
+    public record Upload(
+            File file, long totalSize, String mime, TransportSecurity transportSecurity) {}
+}

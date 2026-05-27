@@ -1,0 +1,28 @@
+Ilmainen ja avoimen lähdekoodin Jabber/XMPP-asiakasohjelma Androidille. Helppokäyttöinen, luotettava ja akkua säästävä. Sisäänrakennettu tuki kuville, ryhmäpikakeskusteluille ja sijainnin jakamiselle. Päästä päähän -salattu oletuksena. Yhdistää kaikkiin nykyaikaisiin Jabber-, XMPP- ja Snikket-palvelimiin.
+
+<b>Ominaisuudet</b>
+• Päästä päähän -salaus OMEMOlla tai OpenPGP:llä
+• Lähetä ja vastaanota kuvia ja muita tiedostoja
+• Salatut ääni- ja videopuhelut (DTLS-SRTP)
+• Edistynyt välikäden tunnistus kanavasidonnan kautta (vaatii suostumuksen)
+• Sijainnin jakaminen
+• Ääniviestien lähettäminen
+• Emoji-reaktiot
+• Ilmoitus yhteyshenkilön luettua viestin
+• Intuitiivinen käyttöliittymä, joka noudattaa Androidin suunnitteluohjeita (Material Design 3 ja DynamicColors)
+• Korkean resoluution yhteystietokuvat (avatarit)
+• Synkronoi työpöytäsovellusten kanssa (Gajim ja Dino)
+• Yksityiset ryhmäpikakeskustelut ja julkiset konferenssit (kirjanmerkkien tuella)
+• Viestien moderointi P-ylläpitäjille julkisissa konferensseissa
+• Osoitekirjan integrointi
+• Useita tilejä (yhtenäinen postilaatikko)
+• Toimita työntöilmoituksia muihin yhteensopiviin sovelluksiin, kuten Tusky, Ltt.rs, DAVx⁵ ja Fennec, UnifiedPushin kautta
+• Erittäin pieni vaikutus akun elinkääreen
+
+<i><b>Huomautus:</b></i> Jotkin näistä ominaisuuksista vaativat palvelintukea. Siirry tilin tietoihin ja valitse ylivuotovalikosta "Palvelimen tiedot" nähdäksesi, onko palvelimellasi kaikki tarvittavat laajennukset.
+
+<b>Suunnitteluperiaatteet</b>
+• On mahdollisimman kaunis ja helppokäyttöinen tinkimättä turvallisuudesta tai yksityisyydestä
+• Perustuu olemassa oleviin, vakiintuneisiin protokolliin
+• Ei vaadi Google-tiliä tai erityisesti Firebase Cloud Messagingia (FCM)
+• Vaatii mahdollisimman vähän käyttöoikeuksia

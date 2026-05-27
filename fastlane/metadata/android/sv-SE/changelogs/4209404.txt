@@ -1,0 +1,1 @@
+* Åtgärdat mindre återinförda fel som introducerades med version 2.13.1
