@@ -1201,10 +1201,13 @@ public class MessageAdapter extends ArrayAdapter<Message> {
         return viewHolder.binding.getRoot();
     }
 
-    private void applyAvatarShape(final com.google.android.material.imageview.ShapeableImageView view) {
+    private void applyAvatarShape(final android.widget.ImageView view) {
+        if (!(view instanceof com.google.android.material.imageview.ShapeableImageView shapeable)) {
+            return;
+        }
         final boolean circleAvatars = new AppSettings(activity).isCircleAvatars();
-        view.setShapeAppearanceModel(
-                view.getShapeAppearanceModel()
+        shapeable.setShapeAppearanceModel(
+                shapeable.getShapeAppearanceModel()
                         .toBuilder()
                         .setAllCornerSizes(circleAvatars
                                 ? new com.google.android.material.shape.RelativeCornerSize(0.5f)
