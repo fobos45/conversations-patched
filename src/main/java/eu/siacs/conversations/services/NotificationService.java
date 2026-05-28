@@ -20,7 +20,6 @@ import android.media.AudioAttributes;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.media.RingtoneManager;
-import android.media.ToneGenerator;
 import android.net.Uri;
 import android.os.Build;
 import android.os.VibrationEffect;
@@ -829,7 +828,7 @@ public class NotificationService {
         }
         final android.net.Uri customSound = appSettings.getInChatBeepSound();
         if (customSound != null) {
-            // Play user-selected sound via MediaPlayer
+            // Play user-selected sound via MediaPlayer at 50% system volume
             try {
                 final MediaPlayer mp = new MediaPlayer();
                 mp.setAudioAttributes(
@@ -838,16 +837,28 @@ public class NotificationService {
                                 .setUsage(AudioAttributes.USAGE_NOTIFICATION)
                                 .build());
                 mp.setDataSource(mXmppConnectionService.getApplicationContext(), customSound);
+                final float vol = getHalfNotificationVolume(audioManager);
+                mp.setVolume(vol, vol);
                 mp.setOnPreparedListener(MediaPlayer::start);
                 mp.setOnCompletionListener(MediaPlayer::release);
                 mp.prepareAsync();
             } catch (final Exception e) {
                 Log.d(Config.LOGTAG, "could not play custom in-chat sound, falling back to beep", e);
-                playFallbackBeep();
+                playFallbackBeep(audioManager);
             }
         } else {
-            playFallbackBeep();
+            playFallbackBeep(audioManager);
         }
+    }
+
+    /**
+     * Returns a volume scalar (0.0–1.0) that is 50% of the current system notification volume.
+     */
+    private float getHalfNotificationVolume(final AudioManager audioManager) {
+        final int max = audioManager.getStreamMaxVolume(AudioManager.STREAM_NOTIFICATION);
+        final int current = audioManager.getStreamVolume(AudioManager.STREAM_NOTIFICATION);
+        if (max <= 0) return 0.5f;
+        return (current / (float) max) * 0.5f;
     }
 
     private void playInChatVibration() {
@@ -875,15 +886,30 @@ public class NotificationService {
         }
     }
 
-    private void playFallbackBeep() {
+    private void playFallbackBeep(final AudioManager audioManager) {
         try {
-            final ToneGenerator toneGen =
-                    new ToneGenerator(AudioManager.STREAM_NOTIFICATION, 60 /* volume 0-100 */);
-            toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 120 /* duration ms */);
-            new android.os.Handler(android.os.Looper.getMainLooper())
-                    .postDelayed(toneGen::release, 200);
-        } catch (final RuntimeException e) {
-            Log.d(Config.LOGTAG, "could not play in-chat beep", e);
+            final Context ctx = mXmppConnectionService.getApplicationContext();
+            // Play embedded Rhea sound from raw resources at 50% system volume
+            final MediaPlayer mp = MediaPlayer.create(ctx, R.raw.rhea);
+            if (mp != null) {
+                final float vol = getHalfNotificationVolume(audioManager);
+                mp.setVolume(vol, vol);
+                mp.setOnCompletionListener(MediaPlayer::release);
+                mp.start();
+                return;
+            }
+            // Fallback to system default notification sound
+            final android.net.Uri defaultUri =
+                    RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+            if (defaultUri != null) {
+                final android.media.Ringtone ringtone =
+                        RingtoneManager.getRingtone(ctx, defaultUri);
+                if (ringtone != null) {
+                    ringtone.play();
+                }
+            }
+        } catch (final Exception e) {
+            Log.d(Config.LOGTAG, "could not play in-chat notification sound", e);
         }
     }
 

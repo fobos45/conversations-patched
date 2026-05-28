@@ -45,6 +45,12 @@
         </menu>
     </item>
     <item
+        android:id="@+id/action_mute_toggle"
+        android:icon="@drawable/ic_volume_up_24dp"
+        android:orderInCategory="25"
+        android:title="@string/disable_notifications"
+        app:showAsAction="always" />
+    <item
         android:id="@+id/action_invite"
         android:orderInCategory="45"
         android:title="@string/invite_contact"
