@@ -7,6 +7,7 @@
             android:defaultValue="rounded"
             android:entries="@array/avatar_shape_entries"
             android:entryValues="@array/avatar_shape_values"
+            android:icon="@drawable/ic_avatar_shape_24dp"
             android:key="avatar_shape"
             android:summary="%s"
             android:title="@string/pref_avatar_shape" />
