@@ -14,6 +14,7 @@ import androidx.databinding.DataBindingUtil;
 import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.color.MaterialColors;
 import com.google.common.base.Optional;
+import eu.siacs.conversations.AppSettings;
 import eu.siacs.conversations.R;
 import eu.siacs.conversations.databinding.ItemConversationBinding;
 import eu.siacs.conversations.entities.Conversation;
