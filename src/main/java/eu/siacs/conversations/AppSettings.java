@@ -62,6 +62,7 @@ public class AppSettings {
     public static final String NOTIFICATION_VIBRATE = "vibrate_on_notification";
     public static final String IN_CHAT_BEEP = "in_chat_beep";
     public static final String IN_CHAT_BEEP_SOUND = "in_chat_beep_sound";
+    public static final String AVATAR_SHAPE = "avatar_shape";
     public static final String NOTIFICATION_LED = "led";
     public static final String SHOW_CONNECTION_OPTIONS = "show_connection_options";
     public static final String USE_TOR = "use_tor";
@@ -135,6 +136,12 @@ public class AppSettings {
 
     public boolean isInChatBeep() {
         return getBooleanPreference(IN_CHAT_BEEP, R.bool.in_chat_beep);
+    }
+
+    public boolean isCircleAvatars() {
+        return "circle".equals(
+                PreferenceManager.getDefaultSharedPreferences(context)
+                        .getString(AVATAR_SHAPE, "rounded"));
     }
 
     public Uri getInChatBeepSound() {

@@ -2,6 +2,14 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <PreferenceCategory android:title="@string/appearance">
+
+        <ListPreference
+            android:defaultValue="rounded"
+            android:entries="@array/avatar_shape_entries"
+            android:entryValues="@array/avatar_shape_values"
+            android:key="avatar_shape"
+            android:summary="%s"
+            android:title="@string/pref_avatar_shape" />
         <SwitchPreferenceCompat
             android:defaultValue="@bool/dynamic_colors"
             android:icon="@drawable/ic_palette_24dp"

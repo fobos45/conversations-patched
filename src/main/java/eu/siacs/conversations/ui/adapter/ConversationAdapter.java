@@ -179,23 +179,26 @@ public class ConversationAdapter
             viewHolder.binding.conversationName.setTypeface(null, Typeface.BOLD);
         }
 
-        // Color name emerald green if contact is online
+        // Color name emerald green if contact is online, show indicator dot
         if (conversation.getMode() == Conversation.MODE_SINGLE) {
             final Presence.Availability availability =
                     conversation.getContact().getShownStatus();
             if (availability != Presence.Availability.OFFLINE) {
                 viewHolder.binding.conversationName.setTextColor(0xFF50C878); // emerald green
+                viewHolder.binding.onlineIndicator.setVisibility(View.VISIBLE);
             } else {
                 viewHolder.binding.conversationName.setTextColor(
                         MaterialColors.getColor(
                                 viewHolder.binding.conversationName,
                                 com.google.android.material.R.attr.colorOnSurface));
+                viewHolder.binding.onlineIndicator.setVisibility(View.GONE);
             }
         } else {
             viewHolder.binding.conversationName.setTextColor(
                     MaterialColors.getColor(
                             viewHolder.binding.conversationName,
                             com.google.android.material.R.attr.colorOnSurface));
+            viewHolder.binding.onlineIndicator.setVisibility(View.GONE);
         }
 
         if (draft != null) {
@@ -323,6 +326,18 @@ public class ConversationAdapter
                 conversation,
                 viewHolder.binding.conversationImage,
                 R.dimen.avatar_on_conversation_overview);
+
+        // Apply avatar shape from settings
+        final boolean circleAvatars = new AppSettings(activity).isCircleAvatars();
+        viewHolder.binding.conversationImage.setShapeAppearanceModel(
+                viewHolder.binding.conversationImage
+                        .getShapeAppearanceModel()
+                        .toBuilder()
+                        .setAllCornerSizes(circleAvatars
+                                ? new com.google.android.material.shape.RelativeCornerSize(0.5f)
+                                : new com.google.android.material.shape.AbsoluteCornerSize(8))
+                        .build());
+
         viewHolder.itemView.setOnClickListener(v -> listener.onConversationClick(v, conversation));
     }
 

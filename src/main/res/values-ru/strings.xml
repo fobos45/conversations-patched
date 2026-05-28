@@ -120,6 +120,11 @@
     <string name="pref_in_chat_beep_summary">Воспроизводить короткий звуковой сигнал при получении сообщения в открытом чате</string>
     <string name="pref_in_chat_beep_sound">Звук для открытого чата</string>
     <string name="pref_in_chat_beep_sound_summary">Выбрать звук уведомления</string>
+    <string name="pref_avatar_shape">Форма аватара</string>
+    <string-array name="avatar_shape_entries">
+        <item>Скруглённый квадрат</item>
+        <item>Круг</item>
+    </string-array>
     <string name="pref_led">Светодиодное уведомление</string>
     <string name="pref_led_summary">Мерцание индикатора при получении нового сообщения</string>
     <string name="pref_ringtone">Мелодия звонка</string>

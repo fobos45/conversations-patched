@@ -29,13 +29,28 @@
                 android:paddingStart="13dp"
                 android:padding="8dp">
 
-                <com.google.android.material.imageview.ShapeableImageView
-                    android:id="@+id/conversation_image"
+                <FrameLayout
                     android:layout_width="56dp"
                     android:layout_height="56dp"
-                    android:layout_alignParentStart="true"
-                    android:scaleType="centerCrop"
-                    app:shapeAppearanceOverlay="@style/ShapeAppearance.RoundedCornersMedium" />
+                    android:layout_alignParentStart="true">
+
+                    <com.google.android.material.imageview.ShapeableImageView
+                        android:id="@+id/conversation_image"
+                        android:layout_width="56dp"
+                        android:layout_height="56dp"
+                        android:scaleType="centerCrop"
+                        app:shapeAppearanceOverlay="@style/ShapeAppearance.RoundedCornersMedium" />
+
+                    <View
+                        android:id="@+id/online_indicator"
+                        android:layout_width="10dp"
+                        android:layout_height="10dp"
+                        android:layout_gravity="bottom|end"
+                        android:layout_margin="1dp"
+                        android:background="@drawable/online_indicator"
+                        android:visibility="gone" />
+
+                </FrameLayout>
 
                 <RelativeLayout
                     android:layout_width="fill_parent"

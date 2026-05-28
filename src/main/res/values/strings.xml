@@ -128,6 +128,15 @@
     <string name="pref_in_chat_beep_sound">Sound for open chat</string>
     <string name="pref_in_chat_beep_sound_summary">Select a custom notification sound</string>
     <string name="in_chat_beep_sound_default"></string>
+    <string name="pref_avatar_shape">Avatar shape</string>
+    <string-array name="avatar_shape_entries">
+        <item>Rounded square</item>
+        <item>Circle</item>
+    </string-array>
+    <string-array name="avatar_shape_values">
+        <item>rounded</item>
+        <item>circle</item>
+    </string-array>
     <string name="pref_led">LED Notification</string>
     <string name="pref_led_summary">Blink notification light when a new message arrives</string>
     <string name="pref_ringtone">Ringtone</string>
