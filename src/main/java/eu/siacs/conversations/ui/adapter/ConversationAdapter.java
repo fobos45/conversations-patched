@@ -180,12 +180,17 @@ public class ConversationAdapter
             viewHolder.binding.conversationName.setTypeface(null, Typeface.BOLD);
         }
 
-        // Color name emerald green if contact is online, show indicator dot
+        // Color name green if contact is online, show indicator dot
         if (conversation.getMode() == Conversation.MODE_SINGLE) {
             final Presence.Availability availability =
                     conversation.getContact().getShownStatus();
             if (availability != Presence.Availability.OFFLINE) {
-                viewHolder.binding.conversationName.setTextColor(0xFF50C878); // emerald green
+                final int uiMode = activity.getResources().getConfiguration().uiMode
+                        & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
+                final boolean isDark = uiMode == android.content.res.Configuration.UI_MODE_NIGHT_YES;
+                // Dark theme: emerald green; light theme: dark green
+                viewHolder.binding.conversationName.setTextColor(
+                        isDark ? 0xFF50C878 : 0xFF1B5E20);
                 viewHolder.binding.onlineIndicator.setVisibility(View.VISIBLE);
             } else {
                 viewHolder.binding.conversationName.setTextColor(
