@@ -59,14 +59,23 @@ public class ConversationAdapter
         return serverColorMap.get(server);
     }
 
-    /** Returns a background color with low alpha, adapted for light/dark theme */
+    /** Returns background color: on dark theme blends server color toward black,
+     *  on light theme uses low-alpha tint over surface */
     private int getServerBackgroundColor(final android.content.Context ctx, final int stripeColor) {
         final int uiMode = ctx.getResources().getConfiguration().uiMode
                 & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
         final boolean isDark = uiMode == android.content.res.Configuration.UI_MODE_NIGHT_YES;
-        // Light theme: 10% opacity; dark theme: 80% opacity for clearly visible background
-        final int alpha = isDark ? 0xCC : 0x1A;
-        return Color.argb(alpha, Color.red(stripeColor), Color.green(stripeColor), Color.blue(stripeColor));
+        if (isDark) {
+            // Blend server color with black: 20% server color, 80% black
+            final float ratio = 0.20f;
+            final int r = Math.round(Color.red(stripeColor) * ratio);
+            final int g = Math.round(Color.green(stripeColor) * ratio);
+            final int b = Math.round(Color.blue(stripeColor) * ratio);
+            return Color.argb(0xFF, r, g, b);
+        } else {
+            // Light theme: 10% opacity tint
+            return Color.argb(0x1A, Color.red(stripeColor), Color.green(stripeColor), Color.blue(stripeColor));
+        }
     }
 
     private final XmppActivity activity;
