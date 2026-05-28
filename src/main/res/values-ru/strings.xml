@@ -116,9 +116,9 @@
     <string name="pref_notification_settings">Уведомление</string>
     <string name="pref_vibrate">Вибрация</string>
     <string name="pref_vibrate_summary">Вибрация при получении нового сообщения</string>
-    <string name="pref_in_chat_beep">Звук в открытом чате</string>
+    <string name="pref_in_chat_beep">Звук уведомления в открытом чате</string>
     <string name="pref_in_chat_beep_summary">Воспроизводить короткий звуковой сигнал при получении сообщения в открытом чате</string>
-    <string name="pref_in_chat_beep_sound">Звук для открытого чата</string>
+    <string name="pref_in_chat_beep_sound">Звук уведомления для открытого чата</string>
     <string name="pref_in_chat_beep_sound_summary">Выбрать звук уведомления</string>
     <string name="pref_avatar_shape">Форма аватара</string>
     <string-array name="avatar_shape_entries">

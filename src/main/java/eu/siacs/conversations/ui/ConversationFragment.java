@@ -3383,11 +3383,11 @@ public class ConversationFragment extends XmppFragment
         this.binding.toolbar.setTitleCentered(isTabletView);
         final var c = this.conversation;
         this.binding.toolbar.setTitle(c.getName());
-        if (c.getMode() == Conversation.MODE_SINGLE && this.mShowLastUserInteraction) {
+        if (c.getMode() == Conversation.MODE_SINGLE) {
             final var contact = conversation.getContact();
-            this.binding.toolbar.setSubtitle(
-                    UIHelper.lastUserInteraction(
-                            requireContext(), contact.getLastUserInteraction()));
+            final var lastSeen = UIHelper.lastUserInteraction(
+                    requireContext(), contact.getLastUserInteraction());
+            this.binding.toolbar.setSubtitle(lastSeen);
         } else if (c.getMode() == Conversation.MODE_MULTI) {
             final var mucOptions = conversation.getMucOptions();
             final var userCount = mucOptions.getUserCount();

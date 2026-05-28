@@ -35,10 +35,12 @@
         android:title="@string/pref_vibrate" />
     <SwitchPreferenceCompat
         android:defaultValue="@bool/in_chat_beep"
+        android:icon="@drawable/ic_notifications_24dp"
         android:key="in_chat_beep"
         android:summary="@string/pref_in_chat_beep_summary"
         android:title="@string/pref_in_chat_beep" />
     <Preference
+        android:icon="@drawable/ic_music_note_24dp"
         android:key="in_chat_beep_sound"
         android:summary="@string/pref_in_chat_beep_sound_summary"
         android:title="@string/pref_in_chat_beep_sound"

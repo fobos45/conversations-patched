@@ -232,6 +232,10 @@ public class MessageAdapter extends ArrayAdapter<Message> {
                 viewHolder.indicatorReceived().setImageResource(receivedIndicator);
                 if (status == Message.STATUS_SEND_FAILED) {
                     setImageTintError(viewHolder.indicatorReceived());
+                } else if (status == Message.STATUS_SEND_DISPLAYED) {
+                    ImageViewCompat.setImageTintList(
+                            viewHolder.indicatorReceived(),
+                            ColorStateList.valueOf(0xFF50C878)); // emerald green
                 } else {
                     setImageTint(viewHolder.indicatorReceived(), bubbleColor);
                 }
@@ -879,6 +883,7 @@ public class MessageAdapter extends ArrayAdapter<Message> {
                             : !mergeIntoBottom;
             setRequiresAvatar(viewHolder, requiresAvatar);
             AvatarWorkerTask.loadAvatar(message, viewHolder.contactPicture(), R.dimen.avatar);
+            applyAvatarShape(viewHolder.contactPicture());
         } else {
             viewHolder.contactPicture().setVisibility(View.GONE);
         }
@@ -1174,6 +1179,7 @@ public class MessageAdapter extends ArrayAdapter<Message> {
                 showAvatar = true;
                 AvatarWorkerTask.loadAvatar(
                         message, viewHolder.binding.messagePhoto, R.dimen.avatar_on_status_message);
+                applyAvatarShape(viewHolder.binding.messagePhoto);
             } else if (message.getCounterpart() != null
                     || message.getTrueCounterpart() != null
                     || (message.getCounterparts() != null
@@ -1181,6 +1187,7 @@ public class MessageAdapter extends ArrayAdapter<Message> {
                 showAvatar = true;
                 AvatarWorkerTask.loadAvatar(
                         message, viewHolder.binding.messagePhoto, R.dimen.avatar_on_status_message);
+                applyAvatarShape(viewHolder.binding.messagePhoto);
             } else {
                 showAvatar = false;
             }
@@ -1192,6 +1199,17 @@ public class MessageAdapter extends ArrayAdapter<Message> {
             }
         }
         return viewHolder.binding.getRoot();
+    }
+
+    private void applyAvatarShape(final com.google.android.material.imageview.ShapeableImageView view) {
+        final boolean circleAvatars = new AppSettings(activity).isCircleAvatars();
+        view.setShapeAppearanceModel(
+                view.getShapeAppearanceModel()
+                        .toBuilder()
+                        .setAllCornerSizes(circleAvatars
+                                ? new com.google.android.material.shape.RelativeCornerSize(0.5f)
+                                : new com.google.android.material.shape.AbsoluteCornerSize(8))
+                        .build());
     }
 
     private static void configureForStatusMessage(
