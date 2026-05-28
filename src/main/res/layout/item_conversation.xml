@@ -14,6 +14,13 @@
             android:layout_width="fill_parent"
             android:layout_height="wrap_content">
 
+            <View
+                android:id="@+id/server_stripe"
+                android:layout_width="4dp"
+                android:layout_height="match_parent"
+                android:layout_gravity="start"
+                android:visibility="visible" />
+
             <RelativeLayout
                 android:layout_width="fill_parent"
                 android:layout_height="wrap_content"
@@ -48,12 +55,26 @@
                         android:maxLines="1"
                         tools:text="Juliet Capulet" />
 
+                    <TextView
+                        android:id="@+id/server_name"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_below="@id/conversation_name"
+                        android:layout_alignStart="@+id/conversation_lastwrapper"
+                        android:layout_toStartOf="@+id/conversation_lastupdate"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:textSize="10sp"
+                        android:textColor="?colorOnSurfaceVariant"
+                        android:alpha="0.7"
+                        tools:text="example.org" />
+
                     <RelativeLayout
                         android:id="@+id/conversation_lastwrapper"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_below="@id/conversation_name"
-                        android:layout_marginTop="4dp">
+                        android:layout_below="@id/server_name"
+                        android:layout_marginTop="2dp">
 
                         <LinearLayout
                             android:id="@+id/txt_img_wrapper"

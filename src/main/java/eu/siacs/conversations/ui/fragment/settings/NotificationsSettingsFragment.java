@@ -52,6 +52,17 @@ public class NotificationsSettingsFragment extends XmppPreferenceFragment {
                             NotificationService.recreateIncomingCallChannel(requireContext(), uri);
                         }
                     });
+    private final ActivityResultLauncher<Uri> pickInChatBeepSoundLauncher =
+            registerForActivityResult(
+                    new PickRingtone(RingtoneManager.TYPE_NOTIFICATION),
+                    result -> {
+                        if (result == null) {
+                            return;
+                        }
+                        final Uri uri = PickRingtone.noneToNull(result);
+                        appSettings().setInChatBeepSound(uri);
+                        Log.i(Config.LOGTAG, "User set in-chat beep sound to " + uri);
+                    });
 
     @Override
     public void onCreatePreferences(
@@ -150,6 +161,10 @@ public class NotificationsSettingsFragment extends XmppPreferenceFragment {
             pickNotificationTone();
             return true;
         }
+        if (AppSettings.IN_CHAT_BEEP_SOUND.equals(key)) {
+            pickInChatBeepSound();
+            return true;
+        }
         return super.onPreferenceTreeClick(preference);
     }
 
@@ -178,6 +193,17 @@ public class NotificationsSettingsFragment extends XmppPreferenceFragment {
         Log.i(Config.LOGTAG, "current ringtone: " + uri);
         try {
             this.pickRingtoneLauncher.launch(uri);
+        } catch (final ActivityNotFoundException e) {
+            Toast.makeText(requireActivity(), R.string.no_application_found, Toast.LENGTH_LONG)
+                    .show();
+        }
+    }
+
+    private void pickInChatBeepSound() {
+        final Uri uri = appSettings().getInChatBeepSound();
+        Log.i(Config.LOGTAG, "current in-chat beep sound: " + uri);
+        try {
+            this.pickInChatBeepSoundLauncher.launch(uri);
         } catch (final ActivityNotFoundException e) {
             Toast.makeText(requireActivity(), R.string.no_application_found, Toast.LENGTH_LONG)
                     .show();

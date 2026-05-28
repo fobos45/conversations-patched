@@ -592,6 +592,9 @@ public class Conversation extends AbstractEntity
                 .compareFalseFirst(
                         another.getBooleanAttribute(ATTRIBUTE_PINNED_ON_TOP, false),
                         getBooleanAttribute(ATTRIBUTE_PINNED_ON_TOP, false))
+                .compare(
+                        getAccount().getServer(),
+                        another.getAccount().getServer())
                 .compare(another.getSortableTime(), getSortableTime())
                 .result();
     }

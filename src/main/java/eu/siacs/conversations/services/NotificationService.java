@@ -18,6 +18,7 @@ import android.graphics.Bitmap;
 import android.graphics.Typeface;
 import android.media.AudioAttributes;
 import android.media.AudioManager;
+import android.media.MediaPlayer;
 import android.media.RingtoneManager;
 import android.media.ToneGenerator;
 import android.net.Uri;
@@ -779,10 +780,10 @@ public class NotificationService {
                     (this.mIsInForeground && this.mOpenConversation == null) && !isScreenLocked;
             final boolean doNotify;
             if (chatOverviewInForeground) {
-                doNotify = false;
+                doNotify = true;
                 Log.d(
                         Config.LOGTAG,
-                        "silencing notification because chat overview is in foreground");
+                        "showing notification because chat overview is in foreground");
             } else if (account.getXmppConnection()
                     .getManager(ActivityManager.class)
                     .isInGracePeriod()) {
@@ -800,8 +801,8 @@ public class NotificationService {
     }
 
     /**
-     * Plays a short beep sound when a message arrives in the currently open conversation.
-     * Uses ToneGenerator to produce a brief DTMF-style tone at medium volume.
+     * Plays a sound when a message arrives in the currently open conversation.
+     * Uses a user-selected sound file if set, otherwise falls back to a short beep.
      * Respects the device's current ringer mode: no sound in silent/vibrate mode.
      */
     private void playInChatBeep() {
@@ -819,11 +820,34 @@ public class NotificationService {
                 || ringerMode == AudioManager.RINGER_MODE_VIBRATE) {
             return;
         }
+        final android.net.Uri customSound = appSettings.getInChatBeepSound();
+        if (customSound != null) {
+            // Play user-selected sound via MediaPlayer
+            try {
+                final MediaPlayer mp = new MediaPlayer();
+                mp.setAudioAttributes(
+                        new AudioAttributes.Builder()
+                                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                                .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                                .build());
+                mp.setDataSource(mXmppConnectionService.getApplicationContext(), customSound);
+                mp.setOnPreparedListener(MediaPlayer::start);
+                mp.setOnCompletionListener(MediaPlayer::release);
+                mp.prepareAsync();
+            } catch (final Exception e) {
+                Log.d(Config.LOGTAG, "could not play custom in-chat sound, falling back to beep", e);
+                playFallbackBeep();
+            }
+        } else {
+            playFallbackBeep();
+        }
+    }
+
+    private void playFallbackBeep() {
         try {
             final ToneGenerator toneGen =
                     new ToneGenerator(AudioManager.STREAM_NOTIFICATION, 60 /* volume 0-100 */);
             toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 120 /* duration ms */);
-            // Release after the tone finishes
             new android.os.Handler(android.os.Looper.getMainLooper())
                     .postDelayed(toneGen::release, 200);
         } catch (final RuntimeException e) {

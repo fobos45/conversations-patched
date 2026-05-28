@@ -125,6 +125,9 @@
     <string name="pref_vibrate_summary">Vibrate when a new message arrives</string>
     <string name="pref_in_chat_beep">Sound in open chat</string>
     <string name="pref_in_chat_beep_summary">Play a short beep when a message arrives in the currently open chat</string>
+    <string name="pref_in_chat_beep_sound">Sound for open chat</string>
+    <string name="pref_in_chat_beep_sound_summary">Select a custom notification sound</string>
+    <string name="in_chat_beep_sound_default"></string>
     <string name="pref_led">LED Notification</string>
     <string name="pref_led_summary">Blink notification light when a new message arrives</string>
     <string name="pref_ringtone">Ringtone</string>

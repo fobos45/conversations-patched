@@ -61,6 +61,7 @@ public class AppSettings {
     public static final String NOTIFICATION_HEADS_UP = "notification_headsup";
     public static final String NOTIFICATION_VIBRATE = "vibrate_on_notification";
     public static final String IN_CHAT_BEEP = "in_chat_beep";
+    public static final String IN_CHAT_BEEP_SOUND = "in_chat_beep_sound";
     public static final String NOTIFICATION_LED = "led";
     public static final String SHOW_CONNECTION_OPTIONS = "show_connection_options";
     public static final String USE_TOR = "use_tor";
@@ -134,6 +135,20 @@ public class AppSettings {
 
     public boolean isInChatBeep() {
         return getBooleanPreference(IN_CHAT_BEEP, R.bool.in_chat_beep);
+    }
+
+    public Uri getInChatBeepSound() {
+        final var sound = getStringPreference(IN_CHAT_BEEP_SOUND, R.string.in_chat_beep_sound_default);
+        return android.text.TextUtils.isEmpty(sound) ? null : Uri.parse(sound);
+    }
+
+    public void setInChatBeepSound(final Uri uri) {
+        final SharedPreferences sharedPreferences =
+                PreferenceManager.getDefaultSharedPreferences(context);
+        sharedPreferences
+                .edit()
+                .putString(IN_CHAT_BEEP_SOUND, uri == null ? "" : uri.toString())
+                .apply();
     }
 
     public boolean isBTBVEnabled() {

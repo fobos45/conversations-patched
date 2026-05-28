@@ -38,6 +38,11 @@
         android:key="in_chat_beep"
         android:summary="@string/pref_in_chat_beep_summary"
         android:title="@string/pref_in_chat_beep" />
+    <Preference
+        android:key="in_chat_beep_sound"
+        android:summary="@string/pref_in_chat_beep_sound_summary"
+        android:title="@string/pref_in_chat_beep_sound"
+        android:dependency="in_chat_beep" />
     <SwitchPreferenceCompat
         android:defaultValue="@bool/led"
         android:key="led"

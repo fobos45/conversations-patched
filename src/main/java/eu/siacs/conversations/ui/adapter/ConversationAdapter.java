@@ -1,5 +1,6 @@
 package eu.siacs.conversations.ui.adapter;
 
+import android.graphics.Color;
 import android.content.res.ColorStateList;
 import android.graphics.Typeface;
 import android.util.Pair;
@@ -27,10 +28,46 @@ import eu.siacs.conversations.utils.UIHelper;
 import eu.siacs.conversations.xmpp.Jid;
 import eu.siacs.conversations.xmpp.jingle.OngoingRtpSession;
 import eu.siacs.conversations.xmpp.manager.JingleManager;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class ConversationAdapter
         extends RecyclerView.Adapter<ConversationAdapter.ConversationViewHolder> {
+
+    // Saturated, visually distinct colors for server stripes
+    private static final int[] SERVER_STRIPE_COLORS = {
+        0xFF2196F3, // blue
+        0xFF4CAF50, // green
+        0xFFF44336, // red
+        0xFFFF9800, // orange
+        0xFF9C27B0, // purple
+        0xFF00BCD4, // cyan
+        0xFFFF5722, // deep orange
+        0xFF8BC34A, // light green
+        0xFF3F51B5, // indigo
+        0xFFE91E63, // pink
+        0xFF009688, // teal
+        0xFFFFEB3B, // yellow
+    };
+    private final Map<String, Integer> serverColorMap = new HashMap<>();
+
+    private int getServerColor(final String server) {
+        if (!serverColorMap.containsKey(server)) {
+            serverColorMap.put(server, SERVER_STRIPE_COLORS[serverColorMap.size() % SERVER_STRIPE_COLORS.length]);
+        }
+        return serverColorMap.get(server);
+    }
+
+    /** Returns a background color with low alpha, adapted for light/dark theme */
+    private int getServerBackgroundColor(final android.content.Context ctx, final int stripeColor) {
+        final int uiMode = ctx.getResources().getConfiguration().uiMode
+                & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
+        final boolean isDark = uiMode == android.content.res.Configuration.UI_MODE_NIGHT_YES;
+        // Light theme: 10% opacity; dark theme: 15% opacity so it's more visible
+        final int alpha = isDark ? 0x26 : 0x1A;
+        return Color.argb(alpha, Color.red(stripeColor), Color.green(stripeColor), Color.blue(stripeColor));
+    }
 
     private final XmppActivity activity;
     private final List<Conversation> conversations;
@@ -69,13 +106,20 @@ public class ConversationAdapter
         if (conversation == ConversationFragment.getConversation(activity)) {
             viewHolder.binding.frame.setBackgroundResource(
                     R.drawable.background_selected_item_conversation);
-            // viewHolder.binding.frame.setBackgroundColor(MaterialColors.getColor(viewHolder.binding.frame, com.google.android.material.R.attr.colorSurfaceDim));
+            viewHolder.binding.serverStripe.setBackgroundColor(Color.TRANSPARENT);
         } else {
+            final String server = conversation.getAccount().getServer();
+            final int stripeColor = getServerColor(server);
+            // Полупрозрачный фон, адаптированный под тему
             viewHolder.binding.frame.setBackgroundColor(
-                    MaterialColors.getColor(
-                            viewHolder.binding.frame,
-                            com.google.android.material.R.attr.colorSurface));
+                    getServerBackgroundColor(activity, stripeColor));
+            // Насыщенная полоса слева
+            viewHolder.binding.serverStripe.setBackgroundColor(stripeColor);
         }
+
+        // Show server domain label
+        viewHolder.binding.serverName.setText(conversation.getAccount().getServer());
+        viewHolder.binding.serverName.setVisibility(View.VISIBLE);
 
         final Message message = conversation.getLatestMessage();
         final int status = message.getStatus();
