@@ -23,6 +23,9 @@ import android.media.RingtoneManager;
 import android.media.ToneGenerator;
 import android.net.Uri;
 import android.os.Build;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
+import android.os.VibratorManager;
 import android.preference.PreferenceManager;
 import android.provider.Settings;
 import android.text.SpannableString;
@@ -816,8 +819,12 @@ public class NotificationService {
             return;
         }
         final int ringerMode = audioManager.getRingerMode();
-        if (ringerMode == AudioManager.RINGER_MODE_SILENT
-                || ringerMode == AudioManager.RINGER_MODE_VIBRATE) {
+        if (ringerMode == AudioManager.RINGER_MODE_SILENT) {
+            return;
+        }
+        // Short vibration (works in both normal and vibrate mode)
+        playInChatVibration();
+        if (ringerMode == AudioManager.RINGER_MODE_VIBRATE) {
             return;
         }
         final android.net.Uri customSound = appSettings.getInChatBeepSound();
@@ -840,6 +847,31 @@ public class NotificationService {
             }
         } else {
             playFallbackBeep();
+        }
+    }
+
+    private void playInChatVibration() {
+        try {
+            final Context ctx = mXmppConnectionService.getApplicationContext();
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                final VibratorManager vm =
+                        (VibratorManager) ctx.getSystemService(Context.VIBRATOR_MANAGER_SERVICE);
+                if (vm != null) {
+                    vm.getDefaultVibrator().vibrate(
+                            VibrationEffect.createOneShot(80, VibrationEffect.DEFAULT_AMPLITUDE));
+                }
+            } else {
+                final Vibrator v = (Vibrator) ctx.getSystemService(Context.VIBRATOR_SERVICE);
+                if (v != null) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        v.vibrate(VibrationEffect.createOneShot(80, VibrationEffect.DEFAULT_AMPLITUDE));
+                    } else {
+                        v.vibrate(80);
+                    }
+                }
+            }
+        } catch (final Exception e) {
+            Log.d(Config.LOGTAG, "could not vibrate for in-chat beep", e);
         }
     }
 

@@ -26,6 +26,7 @@ import eu.siacs.conversations.ui.util.AvatarWorkerTask;
 import eu.siacs.conversations.utils.IrregularUnicodeDetector;
 import eu.siacs.conversations.utils.UIHelper;
 import eu.siacs.conversations.xmpp.Jid;
+import eu.siacs.conversations.xmpp.Presence;
 import eu.siacs.conversations.xmpp.jingle.OngoingRtpSession;
 import eu.siacs.conversations.xmpp.manager.JingleManager;
 import java.util.HashMap;
@@ -176,6 +177,25 @@ public class ConversationAdapter
             viewHolder.binding.conversationName.setTypeface(null, Typeface.NORMAL);
         } else {
             viewHolder.binding.conversationName.setTypeface(null, Typeface.BOLD);
+        }
+
+        // Color name emerald green if contact is online
+        if (conversation.getMode() == Conversation.MODE_SINGLE) {
+            final Presence.Availability availability =
+                    conversation.getContact().getShownStatus();
+            if (availability != Presence.Availability.OFFLINE) {
+                viewHolder.binding.conversationName.setTextColor(0xFF50C878); // emerald green
+            } else {
+                viewHolder.binding.conversationName.setTextColor(
+                        MaterialColors.getColor(
+                                viewHolder.binding.conversationName,
+                                com.google.android.material.R.attr.colorOnSurface));
+            }
+        } else {
+            viewHolder.binding.conversationName.setTextColor(
+                    MaterialColors.getColor(
+                            viewHolder.binding.conversationName,
+                            com.google.android.material.R.attr.colorOnSurface));
         }
 
         if (draft != null) {
