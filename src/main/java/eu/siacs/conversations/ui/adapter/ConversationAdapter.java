@@ -64,8 +64,8 @@ public class ConversationAdapter
         final int uiMode = ctx.getResources().getConfiguration().uiMode
                 & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
         final boolean isDark = uiMode == android.content.res.Configuration.UI_MODE_NIGHT_YES;
-        // Light theme: 10% opacity; dark theme: 15% opacity so it's more visible
-        final int alpha = isDark ? 0x26 : 0x1A;
+        // Light theme: 10% opacity; dark theme: 80% opacity for clearly visible background
+        final int alpha = isDark ? 0xCC : 0x1A;
         return Color.argb(alpha, Color.red(stripeColor), Color.green(stripeColor), Color.blue(stripeColor));
     }
 
