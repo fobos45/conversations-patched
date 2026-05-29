@@ -697,17 +697,16 @@ public class ConversationFragment extends XmppFragment
                     }
                     if (c.isMuted()) {
                         menuMute.setVisible(false);
-                        // Toolbar button: show muted icon
-                        final MenuItem muteToggle = menu.findItem(R.id.action_mute_toggle);
-                        if (muteToggle != null) {
-                            muteToggle.setIcon(R.drawable.ic_volume_off_24dp);
-                            muteToggle.setTitle(R.string.enable_notifications);
-                        }
                     } else {
                         menuUnmute.setVisible(false);
-                        // Toolbar button: show unmuted icon
-                        final MenuItem muteToggle = menu.findItem(R.id.action_mute_toggle);
-                        if (muteToggle != null) {
+                    }
+                    // Update in-chat sound toggle button independently
+                    final MenuItem muteToggle = menu.findItem(R.id.action_mute_toggle);
+                    if (muteToggle != null) {
+                        if (c.isInChatSoundMuted()) {
+                            muteToggle.setIcon(R.drawable.ic_volume_off_24dp);
+                            muteToggle.setTitle(R.string.enable_notifications);
+                        } else {
                             muteToggle.setIcon(R.drawable.ic_volume_up_24dp);
                             muteToggle.setTitle(R.string.disable_notifications);
                         }
@@ -750,11 +749,10 @@ public class ConversationFragment extends XmppFragment
                             clearHistoryDialog(conversation);
                             break;
                         case R.id.action_mute_toggle:
-                            if (conversation.isMuted()) {
-                                unMuteConversation(conversation);
-                            } else {
-                                muteConversationDialog(conversation);
-                            }
+                            conversation.setInChatSoundMuted(!conversation.isInChatSoundMuted());
+                            requireXmppActivity().xmppConnectionService
+                                    .updateConversation(conversation);
+                            requireActivity().invalidateOptionsMenu();
                             break;
                         case R.id.action_mute:
                             muteConversationDialog(conversation);

@@ -60,6 +60,15 @@ public class Conversation extends AbstractEntity
     public static final String ATTRIBUTE_FORMERLY_PRIVATE_NON_ANONYMOUS =
             "formerly_private_non_anonymous";
     public static final String ATTRIBUTE_PINNED_ON_TOP = "pinned_on_top";
+    public static final String ATTRIBUTE_IN_CHAT_SOUND_MUTED = "in_chat_sound_muted";
+
+    public boolean isInChatSoundMuted() {
+        return getBooleanAttribute(ATTRIBUTE_IN_CHAT_SOUND_MUTED, false);
+    }
+
+    public void setInChatSoundMuted(final boolean muted) {
+        setAttribute(ATTRIBUTE_IN_CHAT_SOUND_MUTED, muted);
+    }
     static final String ATTRIBUTE_MUC_PASSWORD = "muc_password";
     static final String ATTRIBUTE_CAPS2_HASH = "muc_caps2_hash";
     private static final String ATTRIBUTE_NEXT_MESSAGE = "next_message";

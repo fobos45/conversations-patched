@@ -771,7 +771,10 @@ public class NotificationService {
                     Config.LOGTAG,
                     message.getConversation().getAccount().getJid().asBareJid()
                             + ": suppressing notification because conversation is open");
-            playInChatBeep();
+            if (message.getConversation() instanceof Conversation c
+                    && !c.isInChatSoundMuted()) {
+                playInChatBeep();
+            }
             return;
         }
         synchronized (notifications) {
