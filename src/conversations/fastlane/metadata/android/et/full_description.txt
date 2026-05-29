@@ -1,0 +1,28 @@
+Avatud lähtekoodiga vaba ja tasuta Jabber/XMPP-i klient Androidile. Lihtsaltkasutatav, töökindel ja akusõbralik. Piltide, jututubade ja läbiva krüptimise tugi. Vaikimisi kasutab läbivat krüptimist. Toimib kõigi tänapäevaste Jabberi, XMPP ja Snikketi serveritega.
+
+<b>Funktsionaalsus</b>
+• Läbiv krüptimine kas OMEMO või OpenPGP abil
+• Võimalus saata ja vastu võtta pilte ja muid faile
+• Krüptitud hääl- ja videokõned (DTLS-SRTP)
+• Võimalik kolmanda osapoole vaheltründe tuvastus (kui eelnevalt valitud kanali sidumine on kasutusel)
+• Oma asukoha jagamine
+• Häälsõnumite saatmine
+• Reageerimine emojiga
+• Lugemisteatis teiselt osapoolelt
+• Intuitiivne kasutajaliides, mis lähtub Androidi kujunduspõhimõtetest (MD3 dünaamiliste värvidega)
+• Suure resolutsiooniga kontaktide fotod (tunnuspildid)
+• Sünkroniseerimine töölauaklientidega (Gajim ja Dino)
+• Privaatsed ja avalikud konverentsid/jututoad (järjehoidjate toega)
+• Sõnumite modereerimise võimalus avalikes jututubades
+• Lõimimine aadressiraamatuga
+• Mitme kasutajakonto kasutamise võimalus ühise sisendvooga
+• UnifiedPushi abil tõuketeadete edastamine ühilduvatele rakendustele nagu näiteks Tusky, Ltt.rs, DAVx⁵ ja Fennec
+• Üliminimaalne mõju akukasutusele
+
+<i><b>Märkus:</b></i> Mõned neist funktsionaalsustest eeldavad serveri toe olemasolu. Ava kasutajakonto üksikasjad ja sealt vali menüüst „Serveri teave“ ning näed, kas kõik moodulid on serveri poolt toetatud.
+
+<b>Põhimõtted</b>
+• Ilus ja lihtne rakendus ilma kahjustamata turvalisust ja privaatsust
+• Olemasolevate ja toimivate protokollide kasutamine
+• Peab toimima ilma Google kasutajakontota ning mitte vajama Google Cloud Messaging (GCM) teenuseid
+• Peab eeldama nutiseadmes võimalikult vähe õigusi

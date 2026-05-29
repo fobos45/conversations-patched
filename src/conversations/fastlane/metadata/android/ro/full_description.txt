@@ -1,0 +1,28 @@
+Un client Android cu sursă deschisă pentru Jabber/XMPP. Ușor de utilizat, fiabil, prietenos cu bateria. Cu suport încorporat pentru imagini, discuții de grup și partajarea locației. Criptat implicit de la un cap la altul. Conectare la toate serverele moderne de Jabber, XMPP și Snikket.
+
+<b>Caracteristici</b>
+* Criptare de la un capăt-la-altul (E2E) cu OMEMO sau OpenPGP
+* Trimite și primește imagini și alte tipuri de fișiere
+* Apeluri audio și video criptate (DTLS-SRTP)
+• Detectare avansată a atacurilor machine-in-the-middle detection cu ajutorul channel binding (dezactivat implicit)
+* Partajare locație
+* Trimitere mesaje vocale
+* Reacții cu emoticoane
+• Indicare dacă a citit mesajul contactul dvs. 
+• Interfață intuitivă ce respectă designul Android (Material Design 3 cu culori dinamice)
+• Fotografii de contact de înaltă rezoluție (avatare)
+• Sincronizare cu clienții desktop (Gajim și Dino)
+• Discuții de grup private și conferințe publice (cu suport pentru marcaje)
+• Moderare mesaje pentru administratori în conferințe publice
+• Integrarea agendei de adrese
+• Conturi multiple (cutie poștală unificată)
+• Trimitere notificări push către alte aplicații compatibile, cum ar fi Tusky, Ltt.rs, DAVx⁵ și Fennec, prin UnifiedPush
+• Impact foarte redus asupra duratei de viață a bateriei
+
+<i><b>Notă:</b></i> Unele dintre aceste funcții necesită suport server. Accesați detaliile contului și selectați „Informații server” din meniul derulant pentru a vedea dacă serverul dvs. are toate extensiile necesare.
+
+<b>Principii de proiectare</b>
+• Să fie cât mai frumos și ușor de utilizat, fără a sacrifica securitatea sau confidențialitatea
+• Să se bazeze pe protocoale existente și bine stabilite
+• Să nu necesite un cont Google sau, în mod specific, Firebase Cloud Messaging (FCM)
+• Să necesite cât mai puține permisiuni posibil

@@ -1,0 +1,28 @@
+Um cliente de Jabber/XMPP livre e de código aberto para Android. Fácil de usar, confiável, otimizado para baterias. Há suporte embutido para imagens, grupos, e compartilhamento de localização. É criptografado de ponta a ponta por padrão. Conecta a todos os servidores modernos de Jabber, XMPP e Snikket.
+
+<b>Recursos</b>
+• Criptografia de ponta a ponta com OMEMO ou OpenPGP
+• Envie e receba imgens e outros tipos de arquivos
+• Chamadas de áudio e vídeo criptografadas (DTLS-SRTP)
+• Detecção avançada de máquina-no-meio via vinculação de canais (requer ativação)
+• Compartilhe sua localização
+• Envie mensagens de voz
+• Reações de emoji
+• Indicação de quando o seu contato leu sua mensagem
+• Interface intuitiva que segue as diretrizes de design do Android (Material 3 com cores dinâmicas)
+• Fotos de contato em alta resolução (avatares)
+• Sincroniza com clientes para computador (Gajim e Dino)
+• Grupos privados e conferências públicas (com suporte a favoritos)
+• Moderação de mensagens para administradores em conferências públicas
+• Integração com o livro de endereços
+• Múltiplas contas (caixa de entrada unificada)
+• Entregue notificações push a outros apps compatíveis como o Tusky, Ltt.rs, DAVx⁵, e Fennec via UnifiedPush
+• Impacto extremamente baixo na duração da bateria
+
+<i><b>Observação</b></i>: Alguns desses recursos requerem suporte pelo servidor. Visite os detalhes da conta e toque em "Informações do servidor" nos trẽs pontinhos para ver o seu servidor tem as extensões necessárias.
+
+<b>Princípios de design</b>
+• Ser o mais bonito e fácil de usar possível sem sacrificar segurança ou privacidade
+• Depender em protocolos existentes, bem estabelecidos
+• Não exigir uma conta do Google ou especificamente do Firebase Cloud Messaging (FCM)
+• Exigir o mínimo de permissões possíveis

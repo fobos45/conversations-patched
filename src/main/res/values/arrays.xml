@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+	<integer-array name="file_size_values">
+		<item>0</item>
+		<item>524288</item>
+		<item>1048576</item>
+		<item>5242880</item>
+		<item>10485760</item>
+		<item>52428800</item>
+	</integer-array>
+
+	<integer-array name="mute_options_durations">
+		<item>1800</item>
+		<item>3600</item>
+		<item>7200</item>
+		<item>28800</item>
+		<item>-1</item>
+	</integer-array>
+
+	<string-array name="quick_actions">
+		<item>@string/none</item>
+		<item>@string/recently_used</item>
+		<item>@string/attachment_choice_recording</item>
+		<item>@string/attachment_choice_camera</item>
+		<item>@string/attachment_choice_video</item>
+		<item>@string/attachment_choice_gallery</item>
+		<item>@string/attachment_choice_location</item>
+	</string-array>
+
+	<string-array name="quick_action_values">
+		<item>none</item>
+		<item>recent</item>
+		<item>RECORD_VOICE</item>
+		<item>TAKE_PHOTO</item>
+		<item>RECORD_VIDEO</item>
+		<item>CHOOSE_PICTURE</item>
+		<item>SEND_LOCATION</item>
+	</string-array>
+
+	<string-array name="picture_compression_values">
+		<item>never</item>
+		<item>auto</item>
+		<item>always</item>
+	</string-array>
+
+	<string-array name="picture_compression_entries">
+		<item>@string/never</item>
+		<item>@string/large_images_only</item>
+		<item>@string/always</item>
+	</string-array>
+
+	<string-array name="mam_prefs">
+		<item>@string/never</item>
+		<item>@string/contacts</item>
+		<item>@string/always</item>
+	</string-array>
+
+	<string-array name="grace_periods">
+		<item>@string/gp_disable</item>
+		<item>@string/gp_short</item>
+		<item>@string/gp_medium</item>
+		<item>@string/gp_long</item>
+	</string-array>
+
+	<string-array name="grace_periods_values">
+		<item>0</item>
+		<item>144</item>
+		<item>610</item>
+		<item>2584</item>
+	</string-array>
+	<integer-array name="automatic_message_deletion_values">
+		<item>0</item>
+		<item>86400</item>
+		<item>604800</item>
+		<item>2592000</item>
+		<item>15811200</item>
+	</integer-array>
+	<integer-array name="recurring_backup_values">
+		<item>0</item>
+		<item>86400</item>
+		<item>172800</item>
+		<item>604800</item>
+		<item>2592000</item>
+	</integer-array>
+	<string-array name="omemo_setting_entry_values">
+		<item>always</item>
+		<item>default_on</item>
+		<item>default_off</item>
+	</string-array>
+	<string-array name="omemo_setting_entries">
+		<item>@string/always</item>
+		<item>@string/default_on</item>
+		<item>@string/default_off</item>
+	</string-array>
+	<string-array name="video_compression_values">
+		<item>360</item>
+		<item>480</item>
+		<item>720</item>
+		<item>1080</item>
+		<item>uncompressed</item>
+	</string-array>
+
+	<string-array name="video_compression_entries">
+		<item>@string/video_360p</item>
+		<item>@string/video_480p</item>
+		<item>@string/video_720p</item>
+		<item>@string/video_1080p</item>
+		<item>@string/video_original</item>
+	</string-array>
+
+	<string-array name="channel_discovery_entries">
+		<item>@string/jabber_network</item>
+		<item>@string/local_server</item>
+	</string-array>
+
+	<string-array name="channel_discover_values">
+		<item>JABBER_NETWORK</item>
+		<item>LOCAL_SERVER</item>
+	</string-array>
+</resources>

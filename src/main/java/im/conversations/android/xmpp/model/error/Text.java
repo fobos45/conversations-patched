@@ -1,0 +1,18 @@
+package im.conversations.android.xmpp.model.error;
+
+import eu.siacs.conversations.xml.Namespace;
+import im.conversations.android.annotation.XmlElement;
+import im.conversations.android.xmpp.model.Extension;
+
+@XmlElement(namespace = Namespace.XMPP_STANZAS)
+public class Text extends Extension {
+
+    public Text() {
+        super(Text.class);
+    }
+
+    public Text(final String text) {
+        this();
+        this.setContent(text);
+    }
+}
