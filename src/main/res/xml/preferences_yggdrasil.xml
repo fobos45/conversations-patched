@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <SwitchPreferenceCompat
+        android:defaultValue="false"
+        android:key="yggdrasil_enabled"
+        android:summary="@string/pref_yggdrasil_summary"
+        android:title="@string/pref_yggdrasil_enable" />
+
+    <Preference
+        android:key="yggdrasil_address"
+        android:title="@string/pref_yggdrasil_address"
+        android:selectable="false"
+        android:dependency="yggdrasil_enabled" />
+
+    <EditTextPreference
+        android:key="yggdrasil_peers"
+        android:title="@string/pref_yggdrasil_peers"
+        android:summary="@string/pref_yggdrasil_peers_summary"
+        android:dependency="yggdrasil_enabled"
+        android:inputType="textMultiLine" />
+
+    <Preference
+        android:key="yggdrasil_reset_config"
+        android:title="@string/pref_yggdrasil_reset"
+        android:summary="@string/pref_yggdrasil_reset_summary"
+        android:dependency="yggdrasil_enabled" />
+
+</PreferenceScreen>

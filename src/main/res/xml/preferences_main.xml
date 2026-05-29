@@ -38,6 +38,12 @@
         app:summary="@string/pref_connection_summary_w_cd"
         app:title="@string/pref_connection_options" />
     <Preference
+        android:icon="@drawable/ic_link_24dp"
+        android:key="yggdrasil"
+        app:fragment="eu.siacs.conversations.ui.fragment.settings.YggdrasilSettingsFragment"
+        app:summary="@string/pref_yggdrasil_summary_main"
+        app:title="Yggdrasil" />
+    <Preference
         android:icon="@drawable/ic_archive_24dp"
         android:key="backup"
         android:summary="@string/pref_backup_summary"

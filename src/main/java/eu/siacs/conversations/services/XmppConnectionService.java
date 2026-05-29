@@ -1066,6 +1066,10 @@ public class XmppConnectionService extends Service {
         this.destroyed = false;
         OmemoSetting.load(this);
         updateMemorizingTrustManager();
+        // Start Yggdrasil if enabled in settings
+        if (appSettings.isYggdrasilEnabled()) {
+            eu.siacs.conversations.services.YggdrasilService.start(this);
+        }
         final int maxMemory = (int) (Runtime.getRuntime().maxMemory() / 1024);
         final int cacheSize = maxMemory / 8;
         this.mBitmapCache =

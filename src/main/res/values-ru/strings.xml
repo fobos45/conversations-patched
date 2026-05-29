@@ -121,6 +121,17 @@
     <string name="pref_in_chat_beep_sound">Звук уведомления для открытого чата</string>
     <string name="pref_in_chat_beep_sound_summary">Выбрать звук уведомления</string>
     <string name="pref_avatar_shape">Форма аватара</string>
+    <string name="pref_yggdrasil_enable">Включить Yggdrasil</string>
+    <string name="pref_yggdrasil_summary">Маршрутизация соединений к Yggdrasil-серверам через встроенную оверлейную сеть</string>
+    <string name="pref_yggdrasil_summary_main">Встроенная оверлейная сеть Yggdrasil</string>
+    <string name="pref_yggdrasil_address">Ваш адрес Yggdrasil</string>
+    <string name="pref_yggdrasil_not_running">Не запущен</string>
+    <string name="pref_yggdrasil_peers">Пиры</string>
+    <string name="pref_yggdrasil_peers_summary">Введите адреса пиров, по одному на строку (например tcp://1.2.3.4:12345)</string>
+    <string name="pref_yggdrasil_reset">Сбросить ключи</string>
+    <string name="pref_yggdrasil_reset_summary">Сгенерировать новый идентификатор (новый адрес Yggdrasil)</string>
+    <string name="pref_yggdrasil_reset_done">Ключи сброшены. Требуется перезапуск.</string>
+    <string name="yggdrasil_running">Оверлейная сеть Yggdrasil активна</string>
     <string-array name="avatar_shape_entries">
         <item>Скруглённый квадрат</item>
         <item>Круг</item>

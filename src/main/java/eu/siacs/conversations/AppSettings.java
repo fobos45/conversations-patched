@@ -63,6 +63,9 @@ public class AppSettings {
     public static final String IN_CHAT_BEEP = "in_chat_beep";
     public static final String IN_CHAT_BEEP_SOUND = "in_chat_beep_sound";
     public static final String AVATAR_SHAPE = "avatar_shape";
+    public static final String YGGDRASIL_ENABLED = "yggdrasil_enabled";
+    public static final String YGGDRASIL_CONFIG  = "yggdrasil_config";
+    public static final String YGGDRASIL_PEERS   = "yggdrasil_peers";
     public static final String NOTIFICATION_LED = "led";
     public static final String SHOW_CONNECTION_OPTIONS = "show_connection_options";
     public static final String USE_TOR = "use_tor";
@@ -142,6 +145,31 @@ public class AppSettings {
         return "circle".equals(
                 PreferenceManager.getDefaultSharedPreferences(context)
                         .getString(AVATAR_SHAPE, "rounded"));
+    }
+
+    public boolean isYggdrasilEnabled() {
+        return PreferenceManager.getDefaultSharedPreferences(context)
+                .getBoolean(YGGDRASIL_ENABLED, false);
+    }
+
+    public String getYggdrasilConfig() {
+        return PreferenceManager.getDefaultSharedPreferences(context)
+                .getString(YGGDRASIL_CONFIG, "");
+    }
+
+    public void setYggdrasilConfig(final String config) {
+        PreferenceManager.getDefaultSharedPreferences(context)
+                .edit().putString(YGGDRASIL_CONFIG, config).apply();
+    }
+
+    public String getYggdrasilPeers() {
+        return PreferenceManager.getDefaultSharedPreferences(context)
+                .getString(YGGDRASIL_PEERS, "");
+    }
+
+    public void setYggdrasilPeers(final String peers) {
+        PreferenceManager.getDefaultSharedPreferences(context)
+                .edit().putString(YGGDRASIL_PEERS, peers).apply();
     }
 
     public Uri getInChatBeepSound() {

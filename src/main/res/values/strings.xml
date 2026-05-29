@@ -129,6 +129,17 @@
     <string name="pref_in_chat_beep_sound_summary">Select a custom notification sound</string>
     <string name="in_chat_beep_sound_default"></string>
     <string name="pref_avatar_shape">Avatar shape</string>
+    <string name="pref_yggdrasil_enable">Enable Yggdrasil</string>
+    <string name="pref_yggdrasil_summary">Route connections to Yggdrasil servers through built-in overlay network</string>
+    <string name="pref_yggdrasil_summary_main">Built-in Yggdrasil overlay network</string>
+    <string name="pref_yggdrasil_address">Your Yggdrasil address</string>
+    <string name="pref_yggdrasil_not_running">Not running</string>
+    <string name="pref_yggdrasil_peers">Peers</string>
+    <string name="pref_yggdrasil_peers_summary">Enter peer addresses, one per line (e.g. tcp://1.2.3.4:12345)</string>
+    <string name="pref_yggdrasil_reset">Reset keys</string>
+    <string name="pref_yggdrasil_reset_summary">Generate new identity (new Yggdrasil address)</string>
+    <string name="pref_yggdrasil_reset_done">Keys reset. Restart required.</string>
+    <string name="yggdrasil_running">Yggdrasil overlay network active</string>
     <string-array name="avatar_shape_entries">
         <item>Rounded square</item>
         <item>Circle</item>
