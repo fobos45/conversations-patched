@@ -20,8 +20,8 @@
         android:paddingTop="6dp"
         android:paddingBottom="6dp"
         android:textSize="11sp"
-        android:textAllCaps="true"
-        android:letterSpacing="0.08"
+        android:textAllCaps="false"
+        android:gravity="center"
         android:textColor="?colorOnSurfaceVariant"
         android:textStyle="bold" />
 
