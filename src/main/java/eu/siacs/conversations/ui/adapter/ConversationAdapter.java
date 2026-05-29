@@ -396,7 +396,6 @@ public class ConversationAdapter
         viewHolder.itemView.setOnClickListener(v -> listener.onConversationClick(v, conversation));
     }
 
-    @Override
     public Object getItem(final int position) {
         if (position < 0 || position >= items.size()) return null;
         return items.get(position);
