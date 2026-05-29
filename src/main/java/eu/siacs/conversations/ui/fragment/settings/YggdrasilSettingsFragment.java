@@ -1,10 +1,11 @@
 package eu.siacs.conversations.ui.fragment.settings;
 
-import android.app.Activity;
 import android.content.Intent;
 import android.net.VpnService;
 import android.os.Bundle;
 import android.widget.Toast;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.Nullable;
 import androidx.preference.Preference;
 import androidx.preference.SwitchPreferenceCompat;
@@ -14,10 +15,33 @@ import eu.siacs.conversations.services.YggdrasilService;
 
 public class YggdrasilSettingsFragment extends XmppPreferenceFragment {
 
-    private static final int REQUEST_VPN_PERMISSION = 1001;
+    // Modern Activity Result API — must be registered before onCreatePreferences
+    private final ActivityResultLauncher<Intent> vpnPermissionLauncher =
+            registerForActivityResult(
+                    new ActivityResultContracts.StartActivityForResult(),
+                    result -> {
+                        if (result.getResultCode() == android.app.Activity.RESULT_OK) {
+                            // User granted VPN permission — start service and update switch
+                            YggdrasilService.start(requireContext());
+                            final SwitchPreferenceCompat enablePref =
+                                    findPreference(AppSettings.YGGDRASIL_ENABLED);
+                            if (enablePref != null) {
+                                enablePref.setChecked(true);
+                            }
+                            updateAddressLabel(findPreference("yggdrasil_address"));
+                        } else {
+                            // User denied — keep switch off
+                            final SwitchPreferenceCompat enablePref =
+                                    findPreference(AppSettings.YGGDRASIL_ENABLED);
+                            if (enablePref != null) {
+                                enablePref.setChecked(false);
+                            }
+                        }
+                    });
 
     @Override
-    public void onCreatePreferences(@Nullable Bundle savedInstanceState, @Nullable String rootKey) {
+    public void onCreatePreferences(@Nullable Bundle savedInstanceState,
+                                    @Nullable String rootKey) {
         setPreferencesFromResource(R.xml.preferences_yggdrasil, rootKey);
 
         final SwitchPreferenceCompat enablePref =
@@ -25,19 +49,20 @@ public class YggdrasilSettingsFragment extends XmppPreferenceFragment {
         final Preference addressPref = findPreference("yggdrasil_address");
         final Preference resetPref   = findPreference("yggdrasil_reset_config");
 
-        // Show current address if running
         updateAddressLabel(addressPref);
 
         if (enablePref != null) {
             enablePref.setOnPreferenceChangeListener((pref, newValue) -> {
                 final boolean enable = (Boolean) newValue;
                 if (enable) {
-                    // Check VPN permission
+                    // Check if VPN permission is needed
                     final Intent vpnIntent = VpnService.prepare(requireContext());
                     if (vpnIntent != null) {
-                        startActivityForResult(vpnIntent, REQUEST_VPN_PERMISSION);
-                        return false; // wait for result
+                        // Launch system VPN permission dialog
+                        vpnPermissionLauncher.launch(vpnIntent);
+                        return false; // don't flip switch yet — wait for result
                     }
+                    // Permission already granted
                     YggdrasilService.start(requireContext());
                     updateAddressLabel(addressPref);
                 } else {
@@ -58,20 +83,10 @@ public class YggdrasilSettingsFragment extends XmppPreferenceFragment {
                     YggdrasilService.start(requireContext());
                 }
                 Toast.makeText(requireContext(),
-                        R.string.pref_yggdrasil_reset_done, Toast.LENGTH_SHORT).show();
+                        R.string.pref_yggdrasil_reset_done,
+                        Toast.LENGTH_SHORT).show();
                 return true;
             });
-        }
-    }
-
-    @Override
-    public void onActivityResult(final int requestCode, final int resultCode, final Intent data) {
-        if (requestCode == REQUEST_VPN_PERMISSION && resultCode == Activity.RESULT_OK) {
-            YggdrasilService.start(requireContext());
-            final SwitchPreferenceCompat enablePref =
-                    findPreference(AppSettings.YGGDRASIL_ENABLED);
-            if (enablePref != null) enablePref.setChecked(true);
-            updateAddressLabel(findPreference("yggdrasil_address"));
         }
     }
 
