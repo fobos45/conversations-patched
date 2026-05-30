@@ -85,6 +85,8 @@ public class ConversationAdapter
         layer.setLayerInset(1, inset, inset, inset, inset);
         return layer;
     }
+
+    private int getServerColor(final String server) {
         if (!serverColorMap.containsKey(server)) {
             serverColorMap.put(server, SERVER_STRIPE_COLORS[serverColorMap.size() % SERVER_STRIPE_COLORS.length]);
         }
