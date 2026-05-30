@@ -71,6 +71,23 @@ public class AppSettings {
     public static final String SEND_CRASH_REPORTS = "send_crash_reports";
     public static final String COLORFUL_CHAT_BUBBLES = "use_green_background";
     public static final String LARGE_FONT = "large_font";
+    public static final String FONT_SIZE = "font_size";
+
+    public boolean isLargeFont() {
+        // Legacy support for old boolean pref
+        return getFontSizeValue() > 14;
+    }
+
+    public int getFontSizeValue() {
+        final String val = PreferenceManager.getDefaultSharedPreferences(context)
+                .getString(FONT_SIZE, "14");
+        try {
+            return Integer.parseInt(val);
+        } catch (NumberFormatException e) {
+            // Fallback to legacy boolean pref
+            return getBooleanPreference(LARGE_FONT, R.bool.large_font) ? 18 : 14;
+        }
+    }
     public static final String SHOW_AVATARS_11 = "show_avatars";
     public static final String SHOW_AVATARS_ACCOUNTS = "show_avatars_accounts";
     public static final String CALL_INTEGRATION = "call_integration";
@@ -172,10 +189,6 @@ public class AppSettings {
 
     public boolean isColorfulChatBubbles() {
         return getBooleanPreference(COLORFUL_CHAT_BUBBLES, R.bool.use_green_background);
-    }
-
-    public boolean isLargeFont() {
-        return getBooleanPreference(LARGE_FONT, R.bool.large_font);
     }
 
     public boolean isShowAvatars11() {

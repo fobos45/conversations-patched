@@ -6,12 +6,14 @@
         android:key="use_green_background"
         android:summary="@string/pref_use_colorful_bubbles_summary"
         android:title="@string/pref_use_colorful_bubbles" />
-    <SwitchPreferenceCompat
-        android:defaultValue="@bool/large_font"
+    <ListPreference
+        android:defaultValue="14"
+        android:entries="@array/font_size_entries"
+        android:entryValues="@array/font_size_values"
         android:icon="@drawable/ic_format_size_24dp"
-        android:key="large_font"
-        android:summary="@string/pref_large_font_summary"
-        android:title="@string/pref_large_font" />
+        android:key="font_size"
+        android:summary="%s"
+        android:title="@string/pref_font_size" />
     <SwitchPreferenceCompat
         android:defaultValue="@bool/align_start"
         android:disableDependentsState="true"

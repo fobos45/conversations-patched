@@ -120,7 +120,7 @@ public class MessageAdapter extends ArrayAdapter<Message> {
     private final DisplayMetrics metrics;
     private OnContactPictureClicked mOnContactPictureClickedListener;
     private OnContactPictureLongClicked mOnContactPictureLongClickedListener;
-    private BubbleDesign bubbleDesign = new BubbleDesign(false, false, false, true, true);
+    private BubbleDesign bubbleDesign = new BubbleDesign(false, false, false, 14, true, true);
     private final boolean mForceNames;
 
     public MessageAdapter(
@@ -381,7 +381,7 @@ public class MessageAdapter extends ArrayAdapter<Message> {
         viewHolder.image().setVisibility(View.GONE);
         viewHolder.messageBody().setVisibility(View.VISIBLE);
         viewHolder.messageBody().setText(text);
-        setTextSize(viewHolder.messageBody(), this.bubbleDesign.largeFont);
+        setTextSize(viewHolder.messageBody(), this.bubbleDesign.fontSize);
         viewHolder.messageBody().setTypeface(null, Typeface.ITALIC);
         viewHolder
                 .messageBody()
@@ -497,7 +497,7 @@ public class MessageAdapter extends ArrayAdapter<Message> {
         viewHolder.audioPlayer().setVisibility(View.GONE);
         viewHolder.messageBody().setVisibility(View.VISIBLE);
         setTextColor(viewHolder.messageBody(), bubbleColor);
-        setTextSize(viewHolder.messageBody(), this.bubbleDesign.largeFont);
+        setTextSize(viewHolder.messageBody(), this.bubbleDesign.fontSize);
         viewHolder.messageBody().setTypeface(null, Typeface.NORMAL);
         final var rawBody = message.getBody();
         if (Strings.isNullOrEmpty(rawBody)) {
@@ -1442,6 +1442,7 @@ public class MessageAdapter extends ArrayAdapter<Message> {
                         appSettings.isColorfulChatBubbles(),
                         appSettings.isAlignStart(),
                         appSettings.isLargeFont(),
+                        appSettings.getFontSizeValue(),
                         appSettings.isShowAvatars11(),
                         appSettings.isShowAvatarsAccounts());
     }
@@ -1506,14 +1507,8 @@ public class MessageAdapter extends ArrayAdapter<Message> {
         }
     }
 
-    private static void setTextSize(final TextView textView, final boolean largeFont) {
-        if (largeFont) {
-            textView.setTextAppearance(
-                    com.google.android.material.R.style.TextAppearance_Material3_BodyLarge);
-        } else {
-            textView.setTextAppearance(
-                    com.google.android.material.R.style.TextAppearance_Material3_BodyMedium);
-        }
+    private static void setTextSize(final TextView textView, final int fontSize) {
+        textView.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, fontSize);
     }
 
     private static @ColorInt int bubbleToOnSurfaceVariant(
@@ -1563,6 +1558,7 @@ public class MessageAdapter extends ArrayAdapter<Message> {
         public final boolean colorfulChatBubbles;
         public final boolean alignStart;
         public final boolean largeFont;
+        public final int fontSize;
         public final boolean showAvatars11;
         public final boolean showAvatarsAccounts;
 
@@ -1570,11 +1566,13 @@ public class MessageAdapter extends ArrayAdapter<Message> {
                 final boolean colorfulChatBubbles,
                 final boolean alignStart,
                 final boolean largeFont,
+                final int fontSize,
                 final boolean showAvatars11,
                 final boolean showAvatarsAccounts) {
             this.colorfulChatBubbles = colorfulChatBubbles;
             this.alignStart = alignStart;
             this.largeFont = largeFont;
+            this.fontSize = fontSize;
             this.showAvatars11 = showAvatars11;
             this.showAvatarsAccounts = showAvatarsAccounts;
         }
