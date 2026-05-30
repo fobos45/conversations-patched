@@ -34,7 +34,7 @@
         android:id="@+id/action_accounts"
         android:icon="@drawable/ic_verified_user_24dp"
         android:orderInCategory="30"
-        android:title="@string/manage_accounts"
+        android:title="@string/action_accounts"
         app:showAsAction="always" />
 
     <item
