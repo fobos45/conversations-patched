@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+    <SwitchPreferenceCompat
+        android:defaultValue="@bool/use_green_background"
+        android:icon="@drawable/ic_colors_24dp"
+        android:key="use_green_background"
+        android:summary="@string/pref_use_colorful_bubbles_summary"
+        android:title="@string/pref_use_colorful_bubbles" />
+    <ListPreference
+        android:defaultValue="14"
+        android:entries="@array/font_size_entries"
+        android:entryValues="@array/font_size_values"
+        android:icon="@drawable/ic_format_size_24dp"
+        android:key="font_size"
+        android:summary="%s"
+        android:title="@string/pref_font_size" />
+    <SwitchPreferenceCompat
+        android:defaultValue="@bool/align_start"
+        android:disableDependentsState="true"
+        android:icon="@drawable/ic_format_align_left_24dp"
+        android:key="align_start"
+        android:summary="@string/pref_align_start_summary"
+        android:title="@string/pref_align_start" />
+    <PreferenceCategory android:title="@string/pref_category_avatars">
+        <SwitchPreferenceCompat
+            android:defaultValue="@bool/show_avatars"
+            android:icon="@drawable/ic_face_right_24dp"
+            android:key="show_avatars"
+            android:summary="@string/pref_show_11_chats_summary"
+            android:title="@string/pref_show_11_chats" />
+        <SwitchPreferenceCompat
+            android:defaultValue="@bool/show_avatars_accounts"
+            android:key="show_avatars_accounts"
+            android:dependency="align_start"
+            android:icon="@drawable/ic_face_left_24dp"
+            android:summary="@string/pref_account_avatar_summary"
+            android:title="@string/pref_account_avatar" />
+    </PreferenceCategory>
+</PreferenceScreen>

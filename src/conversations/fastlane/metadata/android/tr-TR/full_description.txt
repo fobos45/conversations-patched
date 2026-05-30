@@ -1,0 +1,28 @@
+Android için ücretsiz ve açık kaynaklı bir Jabber/XMPP istemcisi. Kullanımı kolay, güvenilir, pil dostu. Görüntüler, grup sohbetleri ve konum paylaşımı için yerleşik destek. Varsayılan olarak uçtan uca şifreleme. Tüm modern Jabber, XMPP ve Snikket sunucularına bağlanır.
+
+<b>Özellikler</b>
+• OMEMO veya OpenPGP ile uçtan uca şifreleme
+• Görüntü ve diğer türdeki dosyaları gönderme ve alma
+• Şifreli sesli ve görüntülü aramalar (DTLS-SRTP)
+• Kanal bağlama yoluyla gelişmiş ortadaki makine algılama (katılım gerektirir)
+• Konumunuzu paylaşma
+• Sesli mesaj gönderme
+• Emoji tepkileri
+• Kişinizin mesajınızı okuduğunda bildirim
+• Android tasarım kurallarına uygun sezgisel kullanıcı arayüzü (Dinamik Renkler ile Materyal Tasarım 3)
+• Yüksek çözünürlüklü kişi fotoğrafları (avatarlar)
+• Masaüstü istemcileriyle senkronizasyon (Gajim ve Dino)
+• Özel grup sohbetleri ve genel konferanslar (yer imleri desteği ile)
+• Genel konferanslarda yöneticiler için mesaj denetimi
+• Adres defteri entegrasyonu
+• Birden fazla hesap (birleştirilmiş gelen kutusu)
+• UnifiedPush aracılığıyla Tusky, Ltt.rs, DAVx⁵ ve Fennec gibi diğer uyumlu uygulamalara push bildirimleri gönderme
+• Pil ömrü üzerinde çok düşük etki
+
+<i><b>Not:</b></i> Bu özelliklerin bazıları sunucu desteği gerektirir. Hesap ayrıntılarına gidin ve taşma menüsünden "Sunucu Bilgileri"ni seçerek sunucunuzun gerekli tüm uzantılara sahip olup olmadığını kontrol edin.
+
+<b>Tasarım ilkeleri</b>
+• Güvenlik veya gizlilikten ödün vermeden mümkün olduğunca güzel ve kullanımı kolay olun
+• Mevcut, iyi kurulmuş protokollere güvenin
+• Google hesabı veya özellikle Firebase Cloud Messaging (FCM) gerektirmeyin
+• Mümkün olduğunca az izin isteyin

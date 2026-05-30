@@ -1,0 +1,81 @@
+package im.conversations.android.xmpp;
+
+import im.conversations.android.xml.XmlElementReader;
+import im.conversations.android.xmpp.model.delay.Delay;
+import im.conversations.android.xmpp.model.stanza.Message;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.time.Instant;
+import org.junit.Assert;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestRunner;
+import org.robolectric.annotation.ConscryptMode;
+
+@RunWith(RobolectricTestRunner.class)
+@ConscryptMode(ConscryptMode.Mode.OFF)
+public class DateAndTimeProfilesTest {
+
+    @Test
+    public void delayExample() throws IOException {
+        final var xml =
+"""
+ <delay xmlns='urn:xmpp:delay'
+     from='juliet@capulet.com/balcony'
+     stamp='2002-09-10T23:41:07Z'/>
+""";
+        final var delay = XmlElementReader.read(xml, Delay.class);
+        Assert.assertEquals(Instant.ofEpochMilli(1031701267000L), delay.getStamp());
+    }
+
+    @Test
+    public void delayExamplePlusSomeMilliseconds() throws IOException {
+        final var xml =
+"""
+ <delay xmlns='urn:xmpp:delay'
+     from='juliet@capulet.com/balcony'
+     stamp='2002-09-10T23:41:07.123Z'/>
+""";
+        final var delay = XmlElementReader.read(xml, Delay.class);
+        Assert.assertEquals(Instant.ofEpochMilli(1031701267123L), delay.getStamp());
+    }
+
+    @Test
+    public void serialize() throws IOException {
+        final var message = new Message();
+        message.addExtension(new Delay(Instant.ofEpochMilli(1031701267123L)));
+        final var byteArrayOutputStream = new ByteArrayOutputStream();
+        final var streamElementWriter = new StreamElementWriter(byteArrayOutputStream);
+        streamElementWriter.write(message);
+        streamElementWriter.flush();
+        Assert.assertEquals(
+                """
+                <message><delay xmlns="urn:xmpp:delay" stamp="2002-09-10T23:41:07.123Z"/></message>\
+                """,
+                byteArrayOutputStream.toString());
+    }
+
+    @Test
+    public void firstStepsOneTheMoon() throws IOException {
+        final var xml =
+"""
+ <delay xmlns='urn:xmpp:delay'
+     from='juliet@capulet.com/balcony'
+     stamp='1969-07-21T02:56:15Z'/>
+""";
+        final var delay = XmlElementReader.read(xml, Delay.class);
+        Assert.assertEquals(Instant.ofEpochMilli(-14159025000L), delay.getStamp());
+    }
+
+    @Test
+    public void firstStepsOneTheMoonHustonTime() throws IOException {
+        final var xml =
+"""
+ <delay xmlns='urn:xmpp:delay'
+     from='juliet@capulet.com/balcony'
+     stamp='1969-07-20T21:56:15-05:00'/>
+""";
+        final var delay = XmlElementReader.read(xml, Delay.class);
+        Assert.assertEquals(Instant.ofEpochMilli(-14159025000L), delay.getStamp());
+    }
+}

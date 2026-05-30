@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+    <PreferenceCategory android:title="@string/pref_category_engagement_notifications">
+        <SwitchPreferenceCompat
+            android:defaultValue="@bool/confirm_messages"
+            android:icon="@drawable/ic_done_all_24dp"
+            android:key="confirm_messages"
+            android:summary="@string/pref_confirm_messages_summary"
+            android:title="@string/pref_confirm_messages" />
+        <SwitchPreferenceCompat
+            android:defaultValue="@bool/chat_states"
+            android:icon="@drawable/ic_keyboard_24dp"
+            android:key="chat_states"
+            android:summary="@string/pref_chat_states_summary"
+            android:title="@string/pref_chat_states" />
+        <SwitchPreferenceCompat
+            android:defaultValue="@bool/last_activity"
+            android:icon="@drawable/ic_visibility_24dp"
+            android:key="last_activity"
+            android:summary="@string/pref_broadcast_last_activity_summary"
+            android:title="@string/pref_broadcast_last_activity" />
+        <SwitchPreferenceCompat
+            android:defaultValue="@bool/entity_time"
+            android:icon="@drawable/ic_schedule_24dp"
+            android:key="entity_time"
+            android:summary="@string/pref_entity_time_summary"
+            android:title="@string/pref_entity_time" />
+
+    </PreferenceCategory>
+    <PreferenceCategory android:title="@string/pref_category_interaction">
+        <SwitchPreferenceCompat
+            android:defaultValue="@bool/allow_message_correction"
+            android:icon="@drawable/ic_edit_24dp"
+            android:key="allow_message_correction"
+            android:summary="@string/pref_allow_message_correction_summary"
+            android:title="@string/pref_allow_message_correction" />
+        <SwitchPreferenceCompat
+            android:defaultValue="@bool/accept_invites_from_strangers"
+            android:icon="@drawable/ic_domino_mask_24dp"
+            android:key="accept_invites_from_strangers"
+            android:summary="@string/pref_accept_invites_from_strangers_summary"
+            android:title="@string/pref_accept_invites_from_strangers" />
+    </PreferenceCategory>
+    <PreferenceCategory android:title="@string/peer_to_peer">
+        <SwitchPreferenceCompat
+            android:defaultValue="@bool/use_relays"
+            android:icon="@drawable/ic_location_disabled_24dp"
+            android:key="use_relays"
+            android:summary="@string/pref_use_relays_summary"
+            android:title="@string/pref_use_relays" />
+
+    </PreferenceCategory>
+    <PreferenceCategory android:title="@string/pref_category_application">
+        <SwitchPreferenceCompat
+            android:defaultValue="@bool/send_crash_reports"
+            android:icon="@drawable/ic_report_24dp"
+            android:key="send_crash_reports"
+            android:summary="@string/pref_never_send_crash_summary"
+            android:title="@string/pref_send_crash_reports" />
+
+    </PreferenceCategory>
+
+</PreferenceScreen>

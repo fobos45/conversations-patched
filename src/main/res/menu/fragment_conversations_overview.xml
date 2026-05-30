@@ -1,0 +1,33 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/action_qr_codes"
+        android:icon="@drawable/ic_qr_code_scanner_24dp"
+        android:orderInCategory="10"
+        android:title="@string/qr_code_actions"
+        app:showAsAction="ifRoom">
+        <menu>
+            <item
+                android:id="@+id/action_scan_qr_code"
+                android:icon="@drawable/ic_qr_code_scanner_24dp"
+                android:title="@string/scan_qr_code" />
+            <item
+                android:id="@+id/action_show_qr_code"
+                android:icon="@drawable/ic_qr_code_24dp"
+                android:title="@string/show_qr_code" />
+            <item
+                android:id="@+id/action_easy_invite"
+                android:icon="@drawable/ic_join_24dp"
+                android:title="@string/server_invite" />
+        </menu>
+    </item>
+
+    <item
+        android:id="@+id/action_privacy_policy"
+        android:orderInCategory="98"
+        android:title="@string/privacy_policy"
+        android:visible="false"
+        app:showAsAction="never" />
+
+</menu>
