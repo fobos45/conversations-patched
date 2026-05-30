@@ -298,20 +298,26 @@ public class ConversationAdapter
         if (conversation.getMode() == Conversation.MODE_SINGLE) {
             final Presence.Availability availability =
                     conversation.getContact().getShownStatus();
-            if (availability != Presence.Availability.OFFLINE) {
-                final int uiMode = activity.getResources().getConfiguration().uiMode
-                        & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
-                final boolean isDark = uiMode == android.content.res.Configuration.UI_MODE_NIGHT_YES;
-                // Dark theme: emerald green; light theme: dark green
-                viewHolder.binding.conversationName.setTextColor(
-                        isDark ? 0xFF50C878 : 0xFF1B5E20);
-                viewHolder.binding.onlineIndicator.setVisibility(View.VISIBLE);
-            } else {
+            if (availability == Presence.Availability.OFFLINE) {
                 viewHolder.binding.conversationName.setTextColor(
                         MaterialColors.getColor(
                                 viewHolder.binding.conversationName,
                                 com.google.android.material.R.attr.colorOnSurface));
                 viewHolder.binding.onlineIndicator.setVisibility(View.GONE);
+            } else if (availability == Presence.Availability.AWAY
+                    || availability == Presence.Availability.XA) {
+                // Away/Extended Away — orange
+                viewHolder.binding.conversationName.setTextColor(0xFFFF8C00);
+                viewHolder.binding.onlineIndicator.setVisibility(View.VISIBLE);
+            } else {
+                // Online/Chat — green
+                final int uiMode = activity.getResources().getConfiguration().uiMode
+                        & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
+                final boolean isDark = uiMode == android.content.res.Configuration.UI_MODE_NIGHT_YES;
+                // Dark theme: emerald green #50C878; light theme: mid-green between #50C878 and #1B5E20
+                viewHolder.binding.conversationName.setTextColor(
+                        isDark ? 0xFF50C878 : 0xFF35A24C);
+                viewHolder.binding.onlineIndicator.setVisibility(View.VISIBLE);
             }
         } else {
             viewHolder.binding.conversationName.setTextColor(
