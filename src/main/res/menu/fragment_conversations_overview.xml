@@ -24,6 +24,13 @@
     </item>
 
     <item
+        android:id="@+id/action_settings"
+        android:icon="@drawable/ic_settings_24dp"
+        android:orderInCategory="20"
+        android:title="@string/action_settings"
+        app:showAsAction="always" />
+
+    <item
         android:id="@+id/action_privacy_policy"
         android:orderInCategory="98"
         android:title="@string/privacy_policy"
