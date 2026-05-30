@@ -31,13 +31,6 @@
         app:showAsAction="always" />
 
     <item
-        android:id="@+id/action_accounts"
-        android:icon="@drawable/ic_verified_user_24dp"
-        android:orderInCategory="30"
-        android:title="@string/action_accounts"
-        app:showAsAction="always" />
-
-    <item
         android:id="@+id/action_privacy_policy"
         android:orderInCategory="98"
         android:title="@string/privacy_policy"
