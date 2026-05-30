@@ -17,6 +17,7 @@ import com.google.common.base.Optional;
 import eu.siacs.conversations.AppSettings;
 import eu.siacs.conversations.R;
 import eu.siacs.conversations.databinding.ItemConversationBinding;
+import eu.siacs.conversations.entities.Account;
 import eu.siacs.conversations.entities.Conversation;
 import eu.siacs.conversations.entities.Conversational;
 import eu.siacs.conversations.entities.Message;
@@ -58,7 +59,32 @@ public class ConversationAdapter
     };
     private final Map<String, Integer> serverColorMap = new HashMap<>();
 
-    private int getServerColor(final String server) {
+    private Account.State getServerState(final String server) {
+        Account.State worst = Account.State.OFFLINE;
+        for (final Conversation c : conversations) {
+            if (server.equals(c.getAccount().getServer())) {
+                final Account.State s = c.getAccount().getStatus();
+                if (s == Account.State.ONLINE) return s;
+                worst = s;
+            }
+        }
+        return worst;
+    }
+
+    private android.graphics.drawable.Drawable buildStatusDrawable(final int fillColor) {
+        final android.graphics.drawable.GradientDrawable border = new android.graphics.drawable.GradientDrawable();
+        border.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+        border.setColor(0xFFFFFFFF);
+        final android.graphics.drawable.GradientDrawable fill = new android.graphics.drawable.GradientDrawable();
+        fill.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+        fill.setColor(fillColor);
+        final android.graphics.drawable.LayerDrawable layer =
+                new android.graphics.drawable.LayerDrawable(
+                        new android.graphics.drawable.Drawable[]{border, fill});
+        final int inset = Math.round(1.5f * activity.getResources().getDisplayMetrics().density);
+        layer.setLayerInset(1, inset, inset, inset, inset);
+        return layer;
+    }
         if (!serverColorMap.containsKey(server)) {
             serverColorMap.put(server, SERVER_STRIPE_COLORS[serverColorMap.size() % SERVER_STRIPE_COLORS.length]);
         }
@@ -145,10 +171,36 @@ public class ConversationAdapter
             final int stripeColor = getServerColor(server);
             final android.widget.TextView tv = viewHolder.itemView.findViewById(R.id.header_server_name);
             final View stripe = viewHolder.itemView.findViewById(R.id.header_stripe);
+            final View statusDot = viewHolder.itemView.findViewById(R.id.header_server_status);
             if (tv != null) tv.setText(server);
             if (stripe != null) stripe.setBackgroundColor(stripeColor);
             viewHolder.itemView.setBackgroundColor(
                     getServerBackgroundColor(activity, stripeColor));
+            // Server status indicator — colors match AccountAdapter logic
+            if (statusDot != null) {
+                final Account.State state = getServerState(server);
+                final int dotColor;
+                switch (state) {
+                    case ONLINE:
+                        dotColor = MaterialColors.getColor(
+                                statusDot,
+                                androidx.appcompat.R.attr.colorPrimary);
+                        break;
+                    case DISABLED:
+                    case LOGGED_OUT:
+                    case CONNECTING:
+                        dotColor = MaterialColors.getColor(
+                                statusDot,
+                                com.google.android.material.R.attr.colorOnSurfaceVariant);
+                        break;
+                    default:
+                        dotColor = MaterialColors.getColor(
+                                statusDot,
+                                androidx.appcompat.R.attr.colorError);
+                        break;
+                }
+                statusDot.setBackground(buildStatusDrawable(dotColor));
+            }
             return;
         }
 
