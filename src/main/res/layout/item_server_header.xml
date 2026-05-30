@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="24dp">
+    android:layout_height="22dp">
 
     <!-- Full height stripe on the left -->
     <View
@@ -24,7 +24,7 @@
             android:layout_height="wrap_content"
             android:paddingStart="8dp"
             android:paddingEnd="10dp"
-            android:textSize="12sp"
+            android:textSize="13sp"
             android:textAllCaps="false"
             android:gravity="center"
             android:textColor="?colorOnSurfaceVariant"
