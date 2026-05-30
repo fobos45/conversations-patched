@@ -26,10 +26,11 @@
                 android:layout_height="wrap_content"
                 android:background="?android:selectableItemBackground"
                 android:orientation="horizontal"
-                android:paddingStart="5dp"
+                android:layout_marginStart="5dp"
                 android:paddingTop="8dp"
                 android:paddingEnd="8dp"
-                android:paddingBottom="8dp">
+                android:paddingBottom="8dp"
+                android:paddingStart="5dp">
 
                 <FrameLayout
                     android:id="@+id/avatar_container"
