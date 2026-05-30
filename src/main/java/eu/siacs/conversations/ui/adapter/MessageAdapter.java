@@ -5,6 +5,7 @@ import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.ColorStateList;
+import android.graphics.Color;
 import android.graphics.Typeface;
 import android.os.Build;
 import android.text.Spannable;
@@ -254,6 +255,11 @@ public class MessageAdapter extends ArrayAdapter<Message> {
                                     viewHolder.time(), androidx.appcompat.R.attr.colorError));
         } else {
             setTextColor(viewHolder.time(), bubbleColor);
+            // Reduce time text contrast by 10%
+            final int timeColor = viewHolder.time().getCurrentTextColor();
+            final int alpha = Math.round(Color.alpha(timeColor) * 0.9f);
+            viewHolder.time().setTextColor(Color.argb(alpha,
+                    Color.red(timeColor), Color.green(timeColor), Color.blue(timeColor)));
         }
         if (message.getEncryption() == Message.ENCRYPTION_NONE) {
             viewHolder.indicatorSecurity().setVisibility(View.GONE);
