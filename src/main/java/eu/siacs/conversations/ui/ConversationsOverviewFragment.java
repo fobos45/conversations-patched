@@ -467,19 +467,27 @@ public class ConversationsOverviewFragment extends XmppFragment {
         this.binding.list.setLayoutManager(
                 new LinearLayoutManager(getActivity(), LinearLayoutManager.VERTICAL, false));
         // Add thin divider between items
-        this.binding.list.addItemDecoration(new androidx.recyclerview.widget.DividerItemDecoration(
-                requireContext(), androidx.recyclerview.widget.DividerItemDecoration.VERTICAL) {
+        this.binding.list.addItemDecoration(new androidx.recyclerview.widget.RecyclerView.ItemDecoration() {
+            final android.graphics.Paint paint = new android.graphics.Paint();
+            {
+                paint.setColor(0x22FFFFFF); // subtle white line for dark theme
+                paint.setStrokeWidth(1f);
+            }
             @Override
             public void getItemOffsets(android.graphics.Rect outRect,
                     android.view.View view, androidx.recyclerview.widget.RecyclerView parent,
                     androidx.recyclerview.widget.RecyclerView.State state) {
-                outRect.set(0, 0, 0, 1); // 1px bottom offset only
+                outRect.set(0, 0, 0, 1);
             }
             @Override
-            public void onDraw(android.graphics.Canvas c,
+            public void onDrawOver(android.graphics.Canvas c,
                     androidx.recyclerview.widget.RecyclerView parent,
                     androidx.recyclerview.widget.RecyclerView.State state) {
-                // Draw nothing — just use the offset to create spacing
+                for (int i = 0; i < parent.getChildCount() - 1; i++) {
+                    android.view.View child = parent.getChildAt(i);
+                    float y = child.getBottom();
+                    c.drawLine(0, y, parent.getWidth(), y, paint);
+                }
             }
         });
         this.binding.list.addOnScrollListener(ExtendedFabSizeChanger.of(binding.fab));
