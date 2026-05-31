@@ -468,11 +468,6 @@ public class ConversationsOverviewFragment extends XmppFragment {
                 new LinearLayoutManager(getActivity(), LinearLayoutManager.VERTICAL, false));
         // Add thin divider between items
         this.binding.list.addItemDecoration(new androidx.recyclerview.widget.RecyclerView.ItemDecoration() {
-            final android.graphics.Paint paint = new android.graphics.Paint();
-            {
-                paint.setColor(0x22FFFFFF); // subtle white line for dark theme
-                paint.setStrokeWidth(1f);
-            }
             @Override
             public void getItemOffsets(android.graphics.Rect outRect,
                     android.view.View view, androidx.recyclerview.widget.RecyclerView parent,
@@ -483,6 +478,12 @@ public class ConversationsOverviewFragment extends XmppFragment {
             public void onDrawOver(android.graphics.Canvas c,
                     androidx.recyclerview.widget.RecyclerView parent,
                     androidx.recyclerview.widget.RecyclerView.State state) {
+                final android.graphics.Paint paint = new android.graphics.Paint();
+                final int uiMode = parent.getContext().getResources().getConfiguration().uiMode
+                        & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
+                final boolean isDark = uiMode == android.content.res.Configuration.UI_MODE_NIGHT_YES;
+                paint.setColor(isDark ? 0x22FFFFFF : 0x22000000);
+                paint.setStrokeWidth(1f);
                 for (int i = 0; i < parent.getChildCount() - 1; i++) {
                     android.view.View child = parent.getChildAt(i);
                     float y = child.getBottom();
