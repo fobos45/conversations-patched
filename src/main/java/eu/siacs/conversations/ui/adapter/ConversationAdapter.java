@@ -453,6 +453,30 @@ public class ConversationAdapter
                 viewHolder.binding.conversationImage,
                 R.dimen.avatar_on_conversation_overview);
 
+        // Apply list scale setting
+        final int scale = new AppSettings(activity).getListScale();
+        final float density = activity.getResources().getDisplayMetrics().density;
+        // Scale levels: 1=tiny, 2=normal, 3=large, 4=larger, 5=huge
+        final float[] avatarSizes = {36f, 48f, 56f, 64f, 72f};
+        final float[] nameSizes   = {11f, 13f, 15f, 17f, 19f};
+        final float[] subSizes    = {9f,  11f, 13f, 14f, 15f};
+        final int[]   paddings    = {1,   2,   4,   6,   8};
+        final int idx = Math.max(0, Math.min(4, scale - 1));
+        final int avatarPx = Math.round(avatarSizes[idx] * density);
+        final android.view.ViewGroup.LayoutParams lp =
+                viewHolder.binding.avatarContainer.getLayoutParams();
+        lp.width = avatarPx;
+        lp.height = avatarPx;
+        viewHolder.binding.avatarContainer.setLayoutParams(lp);
+        viewHolder.binding.conversationName.setTextSize(
+                android.util.TypedValue.COMPLEX_UNIT_SP, nameSizes[idx]);
+        viewHolder.binding.serverName.setTextSize(
+                android.util.TypedValue.COMPLEX_UNIT_SP, subSizes[idx]);
+        final int pad = Math.round(paddings[idx] * density);
+        viewHolder.itemView.setPaddingRelative(
+                viewHolder.itemView.getPaddingStart(), pad,
+                viewHolder.itemView.getPaddingEnd(), pad);
+
         // Apply avatar shape from settings
         final boolean circleAvatars = new AppSettings(activity).isCircleAvatars();
         viewHolder.binding.conversationImage.setShapeAppearanceModel(

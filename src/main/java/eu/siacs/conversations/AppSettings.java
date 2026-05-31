@@ -63,6 +63,13 @@ public class AppSettings {
     public static final String IN_CHAT_BEEP = "in_chat_beep";
     public static final String IN_CHAT_BEEP_SOUND = "in_chat_beep_sound";
     public static final String AVATAR_SHAPE = "avatar_shape";
+    public static final String LIST_SCALE = "list_scale";
+
+    public int getListScale() {
+        final String val = PreferenceManager.getDefaultSharedPreferences(context)
+                .getString(LIST_SCALE, "2");
+        try { return Integer.parseInt(val); } catch (NumberFormatException e) { return 2; }
+    }
     public static final String NOTIFICATION_LED = "led";
     public static final String SHOW_CONNECTION_OPTIONS = "show_connection_options";
     public static final String USE_TOR = "use_tor";
