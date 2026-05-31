@@ -466,22 +466,6 @@ public class ConversationsOverviewFragment extends XmppFragment {
         this.binding.list.setAdapter(this.conversationsAdapter);
         this.binding.list.setLayoutManager(
                 new LinearLayoutManager(getActivity(), LinearLayoutManager.VERTICAL, false));
-        // Add thin divider between items
-        this.binding.list.addItemDecoration(new androidx.recyclerview.widget.DividerItemDecoration(
-                requireContext(), androidx.recyclerview.widget.DividerItemDecoration.VERTICAL) {
-            @Override
-            public void getItemOffsets(android.graphics.Rect outRect,
-                    android.view.View view, androidx.recyclerview.widget.RecyclerView parent,
-                    androidx.recyclerview.widget.RecyclerView.State state) {
-                outRect.set(0, 0, 0, 1); // 1px bottom offset only
-            }
-            @Override
-            public void onDraw(android.graphics.Canvas c,
-                    androidx.recyclerview.widget.RecyclerView parent,
-                    androidx.recyclerview.widget.RecyclerView.State state) {
-                // Draw nothing — just use the offset to create spacing
-            }
-        });
         this.binding.list.addOnScrollListener(ExtendedFabSizeChanger.of(binding.fab));
         this.binding.searchSuggestionList.setAdapter(this.searchSuggestionAdapter);
         this.searchSuggestionAdapter.setOnSearchSuggestionClicked(this::executeSuggestion);
