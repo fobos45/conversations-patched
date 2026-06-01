@@ -27,9 +27,9 @@
                 android:background="?android:selectableItemBackground"
                 android:orientation="horizontal"
                 android:layout_marginStart="5dp"
-                android:paddingTop="4dp"
+                android:paddingTop="2dp"
                 android:paddingEnd="8dp"
-                android:paddingBottom="4dp"
+                android:paddingBottom="2dp"
                 android:paddingStart="5dp">
 
                 <FrameLayout
