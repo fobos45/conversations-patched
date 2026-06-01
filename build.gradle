@@ -20,18 +20,6 @@ repositories {
     maven { url='https://jitpack.io'}
 }
 
-configurations {
-    playstoreImplementation
-    freeImplementation
-    conversationsFreeImplementation
-    conversationsPlaystorImplementation
-    conversationsPlaystoreImplementation
-    quicksyPlaystoreImplementation
-    quicksyPlaystoreImplementation
-    quicksyFreeImplementation
-    quicksyImplementation
-}
-
 spotless {
     ratchetFrom '2.17.4'
     java {
@@ -40,10 +28,8 @@ spotless {
     }
 }
 
-
 dependencies {
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.5'
-
     annotationProcessor 'org.immutables:value:2.12.1'
     implementation 'org.immutables:value-annotations:2.12.1'
     annotationProcessor project(':libs:annotation-processor')
@@ -74,8 +60,7 @@ dependencies {
     implementation 'im.conversations.webrtc:webrtc-android:129.0.0'
     implementation 'io.deepmedia.community:transcoder-android:0.11.2'
     implementation 'me.leolin:ShortcutBadger:1.1.22@aar'
-    //noinspection NewerVersionAvailable
-    implementation 'net.fellbaum:jemoji:1.7.6' //1.7.6 is the latest with Java 8 support
+    implementation 'net.fellbaum:jemoji:1.7.6'
     implementation 'org.bouncycastle:bcmail-jdk18on:1.84'
     implementation 'org.conscrypt:conscrypt-android:2.5.3'
     implementation 'org.hsluv:hsluv:1.0'
@@ -87,13 +72,10 @@ dependencies {
     implementation 'org.whispersystems:signal-protocol-java:2.6.2'
     conversationsPlaystoreImplementation 'com.android.installreferrer:installreferrer:2.2'
     quicksyImplementation 'io.michaelrocks:libphonenumber-android:9.0.30'
-
     quicksyPlaystoreImplementation 'com.google.android.gms:play-services-auth-api-phone:18.3.0'
-
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.robolectric:robolectric:4.16.1'
     androidTestImplementation 'androidx.test.ext:junit:1.3.0'
-
 }
 
 ext {
@@ -119,23 +101,39 @@ android {
         }
     }
 
+    signingConfigs {
+        release {
+            def propsFile = rootProject.file('signing.properties')
+            if (propsFile.canRead()) {
+                def props = new Properties()
+                props.load(new FileInputStream(propsFile))
+                storeFile file(props['keystore'])
+                storePassword props['keystore.password']
+                keyAlias props['keystore.alias']
+                keyPassword props['key.password']
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            shrinkResources true
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
+        }
+    }
+
     splits {
         abi {
             universalApk true
             enable true
             reset()
-            //noinspection ChromeOsAbiSupport
             include project.ext.abiCodes.keySet() as String[]
         }
     }
 
-    configurations {
-        implementation.exclude group: 'org.jetbrains' , module:'annotations'
-    }
-
-    dataBinding {
-        enabled true
-    }
+    dataBinding { enabled true }
 
     compileOptions {
         coreLibraryDesugaringEnabled true
@@ -143,40 +141,22 @@ android {
         targetCompatibility JavaVersion.VERSION_21
     }
 
-    flavorDimensions += "mode"
-    flavorDimensions += "distribution"
+    flavorDimensions += ["mode", "distribution"]
 
     productFlavors {
-
         quicksy {
             dimension "mode"
             applicationId = "im.quicksy.client"
             resValue "string", "applicationId", applicationId
-
             def appName = "Quicksy"
             resValue "string", "app_name", appName
             buildConfigField "String", "APP_NAME", "\"$appName\""
             buildConfigField "String", "PRIVACY_POLICY", "\"https://quicksy.im/privacy.htm\""
-            def propsFile = rootProject.file('quicksy-auth-secret.properties')
-            if (propsFile.exists()) {
-                def props = new Properties()
-                props.load(new FileInputStream(propsFile))
-                def key = props.getProperty('QUICKSY_AUTHENTICATION_SECRET')
-                if (key != null) {
-                    buildConfigField "String", "QUICKSY_AUTHENTICATION_SECRET",  "\"${key}\""
-                } else {
-                    buildConfigField "String", "QUICKSY_AUTHENTICATION_SECRET", "null"
-                }
-            } else {
-                buildConfigField "String", "QUICKSY_AUTHENTICATION_SECRET", "null"
-            }
         }
-
         conversations {
             dimension "mode"
             buildConfigField "String", "PRIVACY_POLICY", "\"https://conversations.im/privacy.html\""
         }
-
         playstore {
             dimension "distribution"
             versionNameSuffix "+playstore"
@@ -187,95 +167,8 @@ android {
         }
     }
 
-    sourceSets {
-        quicksyFree {
-            java {
-                srcDir 'src/quicksyFree/java'
-            }
-        }
-        quicksyPlaystore {
-            java {
-                srcDir 'src/quicksyPlaystore/java'
-            }
-            res {
-                srcDir 'src/quicksyPlaystore/res'
-            }
-        }
-        conversationsFree {
-            java {
-                srcDir 'src/conversationsFree/java'
-            }
-        }
-        conversationsPlaystore {
-            java {
-                srcDir 'src/conversationsPlaystore/java'
-            }
-            res {
-                srcDir 'src/conversationsPlaystore/res'
-            }
-        }
-    }
-
-    buildTypes {
-        release {
-            shrinkResources true
-            minifyEnabled true
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-        }
-    }
-
-
-    if (new File("signing.properties").exists()) {
-        Properties props = new Properties()
-        props.load(new FileInputStream(file("signing.properties")))
-
-        signingConfigs {
-            release {
-                storeFile file(props['keystore'])
-                storePassword props['keystore.password']
-                keyAlias props['keystore.alias']
-                keyPassword props['keystore.password']
-            }
-        }
-        buildTypes.release.signingConfig = signingConfigs.release
-    }
-
-
-    subprojects {
-
-        afterEvaluate {
-            if (getPlugins().hasPlugin('android') ||
-                    getPlugins().hasPlugin('android-library')) {
-
-                configure(android.lintOptions) {
-                    disable 'AndroidGradlePluginVersion', 'MissingTranslation'
-                }
-            }
-
-        }
-    }
-    packagingOptions {
-        resources {
-            excludes += ['META-INF/BCKEY.DSA', 'META-INF/BCKEY.SF', 'META-INF/versions/9/OSGI-INF/MANIFEST.MF']
-        }
-    }
-    lint {
-        disable 'MissingTranslation', 'InvalidPackage', 'AppCompatResource'
-    }
     buildFeatures {
         buildConfig true
         resValues = true
-    }
-
-    android.applicationVariants.configureEach { variant ->
-        variant.outputs.each { output ->
-            def baseAbiVersionCode = project.ext.abiCodes.get(output.getFilter(com.android.build.OutputFile.ABI))
-            if (baseAbiVersionCode != null) {
-                output.versionCodeOverride = (100 * project.android.defaultConfig.versionCode) + baseAbiVersionCode
-            } else {
-                output.versionCodeOverride = 100 * project.android.defaultConfig.versionCode
-            }
-        }
-
     }
 }
