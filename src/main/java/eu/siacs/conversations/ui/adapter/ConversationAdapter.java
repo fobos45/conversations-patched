@@ -210,17 +210,16 @@ public class ConversationAdapter
         Conversation conversation = (Conversation) item;
         if (viewHolder.binding == null) return;
 
-        // First contact after header keeps original paddingTop, others get +1dp
-        final float density = activity.getResources().getDisplayMetrics().density;
-        final int px4 = Math.round(4 * density);
-        final int px5 = Math.round(5 * density);
+        // Remove top padding if this item follows a header
+        final int px8 = Math.round(8 * activity.getResources().getDisplayMetrics().density);
+        final int px0 = 0;
         final int pos = viewHolder.getAbsoluteAdapterPosition();
         final boolean afterHeader = pos > 0 && items.get(pos - 1) instanceof String;
         viewHolder.itemView.setPaddingRelative(
                 viewHolder.itemView.getPaddingStart(),
-                afterHeader ? px4 : px5,
+                afterHeader ? px0 : px8,
                 viewHolder.itemView.getPaddingEnd(),
-                px5);
+                viewHolder.itemView.getPaddingBottom());
         CharSequence name = conversation.getName();
         if (name instanceof Jid) {
             viewHolder.binding.conversationName.setText(
@@ -456,6 +455,7 @@ public class ConversationAdapter
 
         // Apply list scale setting
         final int scale = new AppSettings(activity).getListScale();
+        final float density = activity.getResources().getDisplayMetrics().density;
         // Scale levels: 1=tiny, 2=normal, 3=large, 4=larger, 5=huge
         final float[] avatarSizes = {36f, 48f, 56f, 64f, 72f};
         final float[] nameSizes   = {11f, 13f, 15f, 17f, 19f};
