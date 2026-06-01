@@ -467,28 +467,19 @@ public class ConversationsOverviewFragment extends XmppFragment {
         this.binding.list.setLayoutManager(
                 new LinearLayoutManager(getActivity(), LinearLayoutManager.VERTICAL, false));
         // Add thin divider between items
-        this.binding.list.addItemDecoration(new androidx.recyclerview.widget.RecyclerView.ItemDecoration() {
+        this.binding.list.addItemDecoration(new androidx.recyclerview.widget.DividerItemDecoration(
+                requireContext(), androidx.recyclerview.widget.DividerItemDecoration.VERTICAL) {
             @Override
             public void getItemOffsets(android.graphics.Rect outRect,
                     android.view.View view, androidx.recyclerview.widget.RecyclerView parent,
                     androidx.recyclerview.widget.RecyclerView.State state) {
-                outRect.set(0, 0, 0, 1);
+                outRect.set(0, 0, 0, 1); // 1px bottom offset only
             }
             @Override
-            public void onDrawOver(android.graphics.Canvas c,
+            public void onDraw(android.graphics.Canvas c,
                     androidx.recyclerview.widget.RecyclerView parent,
                     androidx.recyclerview.widget.RecyclerView.State state) {
-                final android.graphics.Paint paint = new android.graphics.Paint();
-                final int uiMode = parent.getContext().getResources().getConfiguration().uiMode
-                        & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
-                final boolean isDark = uiMode == android.content.res.Configuration.UI_MODE_NIGHT_YES;
-                paint.setColor(isDark ? 0x22FFFFFF : 0x22000000);
-                paint.setStrokeWidth(1f);
-                for (int i = 0; i < parent.getChildCount() - 1; i++) {
-                    android.view.View child = parent.getChildAt(i);
-                    float y = child.getBottom();
-                    c.drawLine(0, y, parent.getWidth(), y, paint);
-                }
+                // Draw nothing — just use the offset to create spacing
             }
         });
         this.binding.list.addOnScrollListener(ExtendedFabSizeChanger.of(binding.fab));

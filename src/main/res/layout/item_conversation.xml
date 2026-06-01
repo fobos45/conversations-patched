@@ -12,8 +12,7 @@
             android:background="?colorSurface"
             android:id="@+id/frame"
             android:layout_width="fill_parent"
-            android:layout_height="wrap_content"
-            android:minHeight="66dp">
+            android:layout_height="wrap_content">
 
             <View
                 android:id="@+id/server_stripe"
@@ -25,25 +24,25 @@
             <RelativeLayout
                 android:layout_width="fill_parent"
                 android:layout_height="wrap_content"
-                android:minHeight="66dp"
                 android:background="?android:selectableItemBackground"
                 android:orientation="horizontal"
+                android:layout_marginStart="5dp"
                 android:paddingTop="5dp"
                 android:paddingEnd="8dp"
                 android:paddingBottom="5dp"
-                android:paddingStart="10dp">
+                android:paddingStart="5dp">
 
                 <FrameLayout
                     android:id="@+id/avatar_container"
-                    android:layout_width="56dp"
-                    android:layout_height="56dp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
                     android:layout_alignParentStart="true"
                     android:layout_centerVertical="true">
 
                     <com.google.android.material.imageview.ShapeableImageView
                         android:id="@+id/conversation_image"
-                        android:layout_width="56dp"
-                        android:layout_height="56dp"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
                         android:scaleType="centerCrop"
                         app:shapeAppearanceOverlay="@style/ShapeAppearance.RoundedCornersMedium" />
 
@@ -200,7 +199,6 @@
                         tools:text="23:42" />
                 </RelativeLayout>
             </RelativeLayout>
-
         </FrameLayout>
     </FrameLayout>
 </layout>

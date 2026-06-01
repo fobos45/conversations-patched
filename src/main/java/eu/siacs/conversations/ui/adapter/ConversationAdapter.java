@@ -210,8 +210,17 @@ public class ConversationAdapter
         Conversation conversation = (Conversation) item;
         if (viewHolder.binding == null) return;
 
-        // All items get same padding regardless of position
+        // First contact after header keeps original paddingTop, others get +1dp
+        final float density = activity.getResources().getDisplayMetrics().density;
+        final int px4 = Math.round(4 * density);
+        final int px5 = Math.round(5 * density);
         final int pos = viewHolder.getAbsoluteAdapterPosition();
+        final boolean afterHeader = pos > 0 && items.get(pos - 1) instanceof String;
+        viewHolder.itemView.setPaddingRelative(
+                viewHolder.itemView.getPaddingStart(),
+                afterHeader ? px4 : px5,
+                viewHolder.itemView.getPaddingEnd(),
+                px5);
         CharSequence name = conversation.getName();
         if (name instanceof Jid) {
             viewHolder.binding.conversationName.setText(
