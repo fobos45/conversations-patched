@@ -1,4 +1,3 @@
-// Корневой build.gradle
 buildscript {
     repositories {
         google()
@@ -10,10 +9,61 @@ buildscript {
     }
 }
 
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-        maven { url='https://jitpack.io'}
+apply plugin: 'com.android.application'
+apply plugin: 'com.diffplug.spotless'
+
+repositories {
+    google()
+    mavenCentral()
+    maven { url='https://jitpack.io'}
+}
+
+android {
+    namespace 'eu.siacs.conversations'
+    compileSdk = 36
+
+    defaultConfig {
+        minSdkVersion 23
+        versionCode 42177
+        versionName "2.20.0"
+        applicationId "eu.siacs.conversations"
     }
+
+    // Здесь мы определяем флаворы (включая free)
+    flavorDimensions += ["mode", "distribution"]
+    productFlavors {
+        conversations { dimension "mode" }
+        free { dimension "distribution" }
+    }
+
+    signingConfigs {
+        release {
+            def propsFile = file('signing.properties')
+            if (propsFile.canRead()) {
+                def props = new Properties()
+                props.load(new FileInputStream(propsFile))
+                storeFile file(props['keystore'])
+                storePassword props['keystore.password']
+                keyAlias props['keystore.alias']
+                keyPassword props['key.password']
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            signingConfig signingConfigs.release
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+dependencies {
+    // Общие зависимости
+    implementation 'androidx.appcompat:appcompat:1.7.1'
+    // Зависимость для free-версии
+    freeImplementation 'androidx.emoji2:emoji2-bundled:1.6.0'
+    
+    // ... сюда добавьте остальные зависимости из вашего списка ...
 }
