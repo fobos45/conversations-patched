@@ -8,10 +8,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -19,38 +17,21 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Generate keystore
+      - name: Generate signing info
         run: |
-          keytool -genkey -v \
-            -keystore keystore.jks \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -alias my-key-alias \
-            -dname "CN=Conversations, OU=Dev, O=Dev, L=Moscow, S=Moscow, C=RU" \
-            -storepass mypassword123 \
-            -keypass mypassword123
-
-      - name: Create signing.properties
-        run: |
+          keytool -genkey -v -keystore keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias my-key-alias -storepass mypassword123 -keypass mypassword123 -dname "CN=Conversations"
           echo "keystore=keystore.jks" > signing.properties
           echo "keystore.password=mypassword123" >> signing.properties
           echo "keystore.alias=my-key-alias" >> signing.properties
           echo "key.password=mypassword123" >> signing.properties
 
-      - name: Grant execute permission
-        run: chmod +x gradlew
-
-      - name: Build Release APK
-        run: ./gradlew assembleConversationsFreeRelease
+      - name: Build
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleConversationsFreeRelease
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: conversations-signed-release
-          path: "**/build/outputs/apk/**/*.apk"
-          if-no-files-found: error
-          retention-days: 7
+          name: app-release
+          path: app/build/outputs/apk/**/*.apk
