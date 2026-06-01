@@ -27,6 +27,8 @@ android {
         versionCode 42177
         versionName "2.20.0"
         applicationId "eu.siacs.conversations"
+        // Эти значения обязательны, чтобы Manifest их нашел
+        resValue "string", "app_name", "Conversations"
     }
 
     signingConfigs {
@@ -60,33 +62,34 @@ android {
         viewBinding true
         dataBinding true
         buildConfig true
+        resValues true
     }
 
     flavorDimensions += ["mode", "distribution"]
     productFlavors {
-        conversations { dimension "mode" }
-        free { dimension "distribution" }
+        conversations { 
+            dimension "mode"
+            resValue "string", "app_name", "Conversations" 
+        }
+        free { 
+            dimension "distribution" 
+        }
     }
 }
 
 dependencies {
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.5'
     
-    // Базовые библиотеки
     implementation 'androidx.appcompat:appcompat:1.7.1'
     implementation 'com.google.android.material:material:1.13.0'
     implementation 'androidx.preference:preference:1.2.1'
     implementation 'androidx.emoji2:emoji2:1.6.0'
-    
-    // Необходимые для UI вашего проекта
     implementation 'com.leinardi.android:speed-dial:3.3.0'
     implementation 'androidx.viewpager:viewpager:1.1.0'
     implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.2.0'
     
-    // Специфичная для free версия
     freeImplementation 'androidx.emoji2:emoji2-bundled:1.6.0'
     
-    // Ядро Conversations
     implementation 'com.google.guava:guava:33.6.0-android'
     implementation 'org.jxmpp:jxmpp-jid:1.1.0'
     implementation 'org.minidns:minidns-client:1.1.1'
