@@ -27,7 +27,7 @@ jobs:
           echo "keystore.alias=${{ secrets.KEY_ALIAS }}" >> signing.properties
 
       - name: Build Release APK
-        run: ./gradlew assembleConversationsFreeRelease
+        run: bash gradlew assembleConversationsFreeRelease
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
