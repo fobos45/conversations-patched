@@ -22,15 +22,34 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Generate keystore if not exists
+        run: |
+          if [ ! -f keystore.jks ]; then
+            keytool -genkey -v \
+              -keystore keystore.jks \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -alias my-key-alias \
+              -dname "CN=Conversations, OU=Dev, O=Dev, L=Moscow, S=Moscow, C=RU" \
+              -storepass mypassword123 \
+              -keypass mypassword123
+          fi
+
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Build Debug APK
-        run: ./gradlew assembleConversationsFreeDebug
+      - name: Build Release APK
+        run: ./gradlew assembleConversationsFreeRelease
+        env:
+          KEYSTORE_FILE: ${{ github.workspace }}/keystore.jks
+          KEYSTORE_PASSWORD: mypassword123
+          KEY_ALIAS: my-key-alias
+          KEY_PASSWORD: mypassword123
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: conversations-patched-debug
-          path: build/outputs/apk/conversationsFree/debug/*.apk
+          name: conversations-release
+          path: build/outputs/apk/conversationsFree/release/*.apk
           retention-days: 7
