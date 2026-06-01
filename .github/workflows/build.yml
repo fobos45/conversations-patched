@@ -8,8 +8,10 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -17,21 +19,18 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: Generate signing info
-        run: |
-          keytool -genkey -v -keystore keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias my-key-alias -storepass mypassword123 -keypass mypassword123 -dname "CN=Conversations"
-          echo "keystore=keystore.jks" > signing.properties
-          echo "keystore.password=mypassword123" >> signing.properties
-          echo "keystore.alias=my-key-alias" >> signing.properties
-          echo "key.password=mypassword123" >> signing.properties
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
 
-      - name: Build
-        run: |
-          chmod +x gradlew
-          ./gradlew assembleConversationsFreeRelease
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build Debug APK
+        run: ./gradlew assembleConversationsFreeDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-release
-          path: app/build/outputs/apk/**/*.apk
+          name: conversations-patched-debug
+          path: build/outputs/apk/conversationsFree/debug/*.apk
+          retention-days: 7
