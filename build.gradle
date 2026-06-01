@@ -71,13 +71,18 @@ android {
             dimension "mode" 
             resValue "string", "app_name", "Conversations"
         }
-        free { dimension "distribution" }
+        free { 
+            dimension "distribution" 
+        }
     }
 }
 
 dependencies {
-    // ПОДКЛЮЧАЕМ ВСЕ БИБЛИОТЕКИ ИЗ ПАПКИ LIBS
+    // Подключаем все файлы из libs
     implementation fileTree(dir: 'libs', include: ['*.jar', '*.aar'])
+    
+    // Явно подключаем Speed Dial из Maven, чтобы атрибуты sd... стали видны компилятору ресурсов
+    implementation 'com.leinardi.android:speed-dial:3.3.0'
 
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.5'
     
