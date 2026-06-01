@@ -27,8 +27,6 @@ android {
         versionCode 42177
         versionName "2.20.0"
         applicationId "eu.siacs.conversations"
-        
-        // ВАЖНО: Добавляем недостающие ресурсы, которые ищет XML
         resValue "string", "applicationId", applicationId
         resValue "string", "app_name", "Conversations"
     }
@@ -71,23 +69,22 @@ android {
     productFlavors {
         conversations { 
             dimension "mode" 
-            resValue "string", "applicationId", "eu.siacs.conversations"
             resValue "string", "app_name", "Conversations"
         }
-        free { 
-            dimension "distribution" 
-        }
+        free { dimension "distribution" }
     }
 }
 
 dependencies {
+    // ПОДКЛЮЧАЕМ ВСЕ БИБЛИОТЕКИ ИЗ ПАПКИ LIBS
+    implementation fileTree(dir: 'libs', include: ['*.jar', '*.aar'])
+
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.5'
     
     implementation 'androidx.appcompat:appcompat:1.7.1'
     implementation 'com.google.android.material:material:1.13.0'
     implementation 'androidx.preference:preference:1.2.1'
     implementation 'androidx.emoji2:emoji2:1.6.0'
-    implementation 'com.leinardi.android:speed-dial:3.3.0'
     implementation 'androidx.viewpager:viewpager:1.1.0'
     implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.2.0'
     
