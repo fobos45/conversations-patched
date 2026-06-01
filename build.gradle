@@ -27,7 +27,9 @@ android {
         versionCode 42177
         versionName "2.20.0"
         applicationId "eu.siacs.conversations"
-        // Эти значения обязательны, чтобы Manifest их нашел
+        
+        // ВАЖНО: Добавляем недостающие ресурсы, которые ищет XML
+        resValue "string", "applicationId", applicationId
         resValue "string", "app_name", "Conversations"
     }
 
@@ -68,8 +70,9 @@ android {
     flavorDimensions += ["mode", "distribution"]
     productFlavors {
         conversations { 
-            dimension "mode"
-            resValue "string", "app_name", "Conversations" 
+            dimension "mode" 
+            resValue "string", "applicationId", "eu.siacs.conversations"
+            resValue "string", "app_name", "Conversations"
         }
         free { 
             dimension "distribution" 
