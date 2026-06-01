@@ -22,8 +22,7 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-<<<<<<< HEAD
-      - name: Generate keystore
+      - name: Generate and Move keystore
         run: |
           keytool -genkey -v \
             -keystore keystore.jks \
@@ -34,45 +33,29 @@ jobs:
             -dname "CN=Conversations, OU=Dev, O=Dev, L=Moscow, S=Moscow, C=RU" \
             -storepass mypassword123 \
             -keypass mypassword123
+          mkdir -p conversations
+          cp keystore.jks conversations/keystore.jks
 
       - name: Create signing.properties
         run: |
-          echo "keystore=keystore.jks" > signing.properties
-          echo "keystore.password=mypassword123" >> signing.properties
-          echo "keystore.alias=my-key-alias" >> signing.properties
-=======
-      - name: Generate keystore if not exists
-        run: |
-          if [ ! -f keystore.jks ]; then
-            keytool -genkey -v \
-              -keystore keystore.jks \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -alias my-key-alias \
-              -dname "CN=Conversations, OU=Dev, O=Dev, L=Moscow, S=Moscow, C=RU" \
-              -storepass mypassword123 \
-              -keypass mypassword123
-          fi
->>>>>>> a4afc0fcd3569e77275a0195379354f307a7c9f2
+          # Указываем путь к ключу относительно папки conversations
+          echo "keystore=keystore.jks" > conversations/signing.properties
+          echo "keystore.password=mypassword123" >> conversations/signing.properties
+          echo "keystore.alias=my-key-alias" >> conversations/signing.properties
+          echo "key.password=mypassword123" >> conversations/signing.properties
 
-      - name: Grant execute permission for gradlew
+      - name: Grant execute permission
         run: chmod +x gradlew
 
+      # ИСПОЛЬЗУЕМ СБОРКУ С ЯВНОЙ ПЕРЕДАЧЕЙ СВОЙСТВ
       - name: Build Release APK
-        run: ./gradlew assembleConversationsFreeRelease
-<<<<<<< HEAD
-=======
-        env:
-          KEYSTORE_FILE: ${{ github.workspace }}/keystore.jks
-          KEYSTORE_PASSWORD: mypassword123
-          KEY_ALIAS: my-key-alias
-          KEY_PASSWORD: mypassword123
->>>>>>> a4afc0fcd3569e77275a0195379354f307a7c9f2
+        run: ./gradlew assembleConversationsFreeRelease -PsigningConfigPath=conversations/signing.properties
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: conversations-release
-          path: build/outputs/apk/conversationsFree/release/*.apk
+          name: conversations-signed-release
+          # Ищем любой файл, даже если он раньше был unsigned
+          path: "**/build/outputs/apk/**/*.apk"
+          if-no-files-found: error
           retention-days: 7
