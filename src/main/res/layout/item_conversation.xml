@@ -201,13 +201,6 @@
                 </RelativeLayout>
             </RelativeLayout>
 
-            <View
-                android:id="@+id/server_stripe"
-                android:layout_width="5dp"
-                android:layout_height="match_parent"
-                android:layout_gravity="start"
-                android:visibility="visible" />
-
         </FrameLayout>
     </FrameLayout>
 </layout>
