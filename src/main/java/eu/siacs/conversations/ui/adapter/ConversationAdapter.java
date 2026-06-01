@@ -456,7 +456,6 @@ public class ConversationAdapter
 
         // Apply list scale setting
         final int scale = new AppSettings(activity).getListScale();
-        final float density = activity.getResources().getDisplayMetrics().density;
         // Scale levels: 1=tiny, 2=normal, 3=large, 4=larger, 5=huge
         final float[] avatarSizes = {36f, 48f, 56f, 64f, 72f};
         final float[] nameSizes   = {11f, 13f, 15f, 17f, 19f};
