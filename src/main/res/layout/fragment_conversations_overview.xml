@@ -58,14 +58,30 @@
                 android:text="@string/empty_conversations_list_hint" />
         </RelativeLayout>
 
-        <com.google.android.material.floatingactionbutton.FloatingActionButton
-            android:id="@+id/fab"
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="end|bottom"
             android:layout_margin="16dp"
-            android:contentDescription="@string/start_chat"
-            app:srcCompat="@drawable/ic_chat_24dp" />
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
+                android:id="@+id/fab_manage_accounts"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="12dp"
+                android:contentDescription="@string/manage_account"
+                app:srcCompat="@drawable/ic_person_add_24dp" />
+
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
+                android:id="@+id/fab"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:contentDescription="@string/start_chat"
+                app:srcCompat="@drawable/ic_chat_24dp" />
+
+        </LinearLayout>
 
         <com.google.android.material.search.SearchView
             android:id="@+id/search_view"

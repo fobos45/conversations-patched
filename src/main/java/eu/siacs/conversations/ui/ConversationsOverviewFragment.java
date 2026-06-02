@@ -449,6 +449,8 @@ public class ConversationsOverviewFragment extends XmppFragment {
                 });
         this.binding.fab.setOnClickListener(
                 (view) -> StartConversationActivity.launch(getActivity()));
+        this.binding.fabManageAccounts.setOnClickListener(
+                (view) -> AccountUtils.launchManageAccounts(requireXmppActivity()));
 
         this.conversationsAdapter =
                 new ConversationAdapter(requireXmppActivity(), this.conversations);
@@ -682,10 +684,13 @@ public class ConversationsOverviewFragment extends XmppFragment {
                     scrollPosition.position, scrollPosition.offset);
             if (scrollPosition.position > 0) {
                 binding.fab.hide();
+                binding.fabManageAccounts.hide();
             } else {
                 binding.fab.show();
+                binding.fabManageAccounts.show();
             }
             binding.fab.clearAnimation();
+            binding.fabManageAccounts.clearAnimation();
         }
     }
 }
