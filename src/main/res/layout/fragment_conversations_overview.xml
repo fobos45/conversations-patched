@@ -71,7 +71,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="12dp"
-                android:contentDescription="@string/manage_account"
+                android:contentDescription="@string/title_activity_manage_accounts"
                 app:srcCompat="@drawable/ic_person_add_24dp" />
 
             <com.google.android.material.floatingactionbutton.FloatingActionButton
