@@ -53,6 +53,14 @@ import android.widget.PopupMenu;
 import android.widget.TextView;
 import android.widget.TextView.OnEditorActionListener;
 import android.widget.Toast;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
+import android.widget.ImageView;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.IdRes;
@@ -218,6 +226,7 @@ public class ConversationFragment extends XmppFragment
     public static final int REQUEST_COMMIT_ATTACHMENTS = 0x0212;
     public static final int REQUEST_START_AUDIO_CALL = 0x213;
     public static final int REQUEST_START_VIDEO_CALL = 0x214;
+    public static final int REQUEST_PICK_BACKGROUND_IMAGE = 0x215;
     public static final int ATTACHMENT_CHOICE_CHOOSE_IMAGE = 0x0301;
     public static final int ATTACHMENT_CHOICE_TAKE_PHOTO = 0x0302;
     public static final int ATTACHMENT_CHOICE_CHOOSE_FILE = 0x0303;
@@ -748,6 +757,9 @@ public class ConversationFragment extends XmppFragment
                         case R.id.action_clear_history:
                             clearHistoryDialog(conversation);
                             break;
+                        case R.id.action_change_background:
+                            showBackgroundDialog();
+                            break;
                         case R.id.action_mute_toggle:
                             conversation.setInChatSoundMuted(!conversation.isInChatSoundMuted());
                             requireXmppActivity().xmppConnectionService
@@ -1154,6 +1166,11 @@ public class ConversationFragment extends XmppFragment
             case REQUEST_START_AUDIO_CALL:
                 triggerRtpSession(RtpSessionActivity.ACTION_MAKE_VOICE_CALL);
                 break;
+            case REQUEST_PICK_BACKGROUND_IMAGE:
+                if (data != null && data.getData() != null) {
+                    saveBackgroundImage(data.getData());
+                }
+                break;
             case REQUEST_START_VIDEO_CALL:
                 triggerRtpSession(RtpSessionActivity.ACTION_MAKE_VIDEO_CALL);
                 break;
@@ -1410,7 +1427,126 @@ public class ConversationFragment extends XmppFragment
 
         this.binding.textInput.setCustomInsertionActionModeCallback(
                 new EditMessageActionModeCallback(this.binding.textInput));
+        applyBackground();
         return binding.getRoot();
+    }
+
+    private String getBackgroundPrefKey() {
+        return "chat_background_" + (conversation != null ? conversation.getUuid() : "default");
+    }
+
+    private void applyBackground() {
+        if (binding == null || conversation == null) return;
+        final android.content.SharedPreferences prefs =
+                android.preference.PreferenceManager.getDefaultSharedPreferences(requireContext());
+        final String bgType = prefs.getString(getBackgroundPrefKey() + "_type", "none");
+        final ImageView bgView = binding.getRoot().findViewById(R.id.chat_background);
+        if (bgView == null) return;
+        if ("color".equals(bgType)) {
+            final int color = prefs.getInt(getBackgroundPrefKey() + "_color", Color.WHITE);
+            bgView.setVisibility(View.VISIBLE);
+            bgView.setImageDrawable(new ColorDrawable(color));
+        } else if ("image".equals(bgType)) {
+            final String path = prefs.getString(getBackgroundPrefKey() + "_image", null);
+            if (path != null) {
+                final File file = new File(path);
+                if (file.exists()) {
+                    bgView.setVisibility(View.VISIBLE);
+                    bgView.setImageBitmap(BitmapFactory.decodeFile(path));
+                } else {
+                    bgView.setVisibility(View.GONE);
+                }
+            }
+        } else {
+            bgView.setVisibility(View.GONE);
+        }
+    }
+
+    private void showBackgroundDialog() {
+        final String[] options = {
+            getString(R.string.background_color),
+            getString(R.string.background_image),
+            getString(R.string.background_reset)
+        };
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.background_title)
+                .setItems(options, (dialog, which) -> {
+                    if (which == 0) {
+                        showColorPickerDialog();
+                    } else if (which == 1) {
+                        pickBackgroundImage();
+                    } else {
+                        resetBackground();
+                    }
+                })
+                .show();
+    }
+
+    private void showColorPickerDialog() {
+        final int[] colors = {
+            Color.WHITE, Color.parseColor("#E3F2FD"), Color.parseColor("#F3E5F5"),
+            Color.parseColor("#E8F5E9"), Color.parseColor("#FFF8E1"), Color.parseColor("#FCE4EC"),
+            Color.parseColor("#E0F7FA"), Color.parseColor("#F1F8E9"), Color.parseColor("#ECEFF1"),
+            Color.parseColor("#212121")
+        };
+        final String[] colorNames = {
+            "Белый", "Голубой", "Фиолетовый",
+            "Зелёный", "Жёлтый", "Розовый",
+            "Бирюзовый", "Салатовый", "Серый",
+            "Чёрный"
+        };
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.background_color)
+                .setItems(colorNames, (dialog, which) -> {
+                    final android.content.SharedPreferences prefs =
+                            android.preference.PreferenceManager.getDefaultSharedPreferences(requireContext());
+                    prefs.edit()
+                            .putString(getBackgroundPrefKey() + "_type", "color")
+                            .putInt(getBackgroundPrefKey() + "_color", colors[which])
+                            .apply();
+                    applyBackground();
+                })
+                .show();
+    }
+
+    private void pickBackgroundImage() {
+        final Intent intent = new Intent(Intent.ACTION_PICK);
+        intent.setType("image/*");
+        startActivityForResult(intent, REQUEST_PICK_BACKGROUND_IMAGE);
+    }
+
+    private void resetBackground() {
+        final android.content.SharedPreferences prefs =
+                android.preference.PreferenceManager.getDefaultSharedPreferences(requireContext());
+        prefs.edit()
+                .putString(getBackgroundPrefKey() + "_type", "none")
+                .apply();
+        applyBackground();
+    }
+
+    private void saveBackgroundImage(final Uri uri) {
+        try {
+            final InputStream inputStream = requireContext().getContentResolver().openInputStream(uri);
+            if (inputStream == null) return;
+            final File dir = new File(requireContext().getFilesDir(), "backgrounds");
+            if (!dir.exists()) dir.mkdirs();
+            final File file = new File(dir, conversation.getUuid() + ".jpg");
+            final FileOutputStream out = new FileOutputStream(file);
+            final byte[] buf = new byte[4096];
+            int len;
+            while ((len = inputStream.read(buf)) > 0) out.write(buf, 0, len);
+            out.close();
+            inputStream.close();
+            final android.content.SharedPreferences prefs =
+                    android.preference.PreferenceManager.getDefaultSharedPreferences(requireContext());
+            prefs.edit()
+                    .putString(getBackgroundPrefKey() + "_type", "image")
+                    .putString(getBackgroundPrefKey() + "_image", file.getAbsolutePath())
+                    .apply();
+            applyBackground();
+        } catch (Exception e) {
+            Toast.makeText(requireContext(), "Ошибка загрузки изображения", Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void toggleAttachmentChoicesVisibility() {
@@ -3247,6 +3383,7 @@ public class ConversationFragment extends XmppFragment
                 conversation.populateWithMessages(this.messageList);
                 updateSnackBar(conversation);
                 updateStatusMessages();
+                applyBackground();
                 if (conversation.getReceivedMessagesCountSinceUuid(lastMessageUuid) != 0) {
                     binding.unreadCountCustomView.setVisibility(View.VISIBLE);
                     binding.unreadCountCustomView.setUnreadCount(

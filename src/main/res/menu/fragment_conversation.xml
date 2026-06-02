@@ -71,6 +71,11 @@
         android:title="@string/action_archive_chat"
         app:showAsAction="never" />
     <item
+        android:id="@+id/action_change_background"
+        android:orderInCategory="65"
+        android:title="@string/action_change_background"
+        app:showAsAction="never" />
+    <item
         android:orderInCategory="70"
         android:title="@string/more_options">
         <menu>
