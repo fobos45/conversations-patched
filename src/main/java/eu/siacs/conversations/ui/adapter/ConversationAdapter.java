@@ -464,7 +464,7 @@ public class ConversationAdapter
         final float[] avatarSizes = {36f, 48f, 56f, 64f, 72f};
         final float[] nameSizes   = {11f, 13f, 15f, 17f, 19f};
         final float[] subSizes    = {9f,  11f, 13f, 14f, 15f};
-        final int[] paddings    = {0,   0,   1,   2,   3};
+        final int[] paddings    = {0,   1,   2,   3,   4};
         final int idx = Math.max(0, Math.min(4, scale - 1));
         final int avatarPx = Math.round(avatarSizes[idx] * density);
         final android.view.ViewGroup.LayoutParams lp =
