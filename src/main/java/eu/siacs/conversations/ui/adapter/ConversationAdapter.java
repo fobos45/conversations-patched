@@ -210,16 +210,8 @@ public class ConversationAdapter
         Conversation conversation = (Conversation) item;
         if (viewHolder.binding == null) return;
 
-        // Remove top padding if this item follows a header
-        final int px8 = Math.round(8 * activity.getResources().getDisplayMetrics().density);
-        final int px0 = 0;
+        // All items same padding — controlled by XML only
         final int pos = viewHolder.getAbsoluteAdapterPosition();
-        final boolean afterHeader = pos > 0 && items.get(pos - 1) instanceof String;
-        viewHolder.itemView.setPaddingRelative(
-                viewHolder.itemView.getPaddingStart(),
-                afterHeader ? px0 : px8,
-                viewHolder.itemView.getPaddingEnd(),
-                viewHolder.itemView.getPaddingBottom());
         CharSequence name = conversation.getName();
         if (name instanceof Jid) {
             viewHolder.binding.conversationName.setText(
