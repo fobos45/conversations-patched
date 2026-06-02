@@ -136,6 +136,18 @@ public class ConversationAdapter
         this.activity = activity;
         this.conversations = conversations;
         rebuildItems();
+        setHasStableIds(true);
+    }
+
+    @Override
+    public long getItemId(int position) {
+        final Object item = items.get(position);
+        if (item instanceof Conversation) {
+            return ((Conversation) item).getUuid().hashCode();
+        } else if (item instanceof String) {
+            return item.hashCode();
+        }
+        return RecyclerView.NO_ID;
     }
 
     public void notifyDataSetChangedWithHeaders() {
@@ -503,7 +515,8 @@ public class ConversationAdapter
 
     public void remove(Conversation conversation, int position) {
         conversations.remove(conversation);
-        notifyItemRemoved(position);
+        rebuildItems();
+        notifyDataSetChanged();
     }
 
     public interface OnConversationClickListener {
