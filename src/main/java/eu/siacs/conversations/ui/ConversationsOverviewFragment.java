@@ -482,7 +482,6 @@ public class ConversationsOverviewFragment extends XmppFragment {
                 // Draw nothing — just use the offset to create spacing
             }
         });
-        this.binding.list.addOnScrollListener(ExtendedFabSizeChanger.of(binding.fab));
         this.binding.searchSuggestionList.setAdapter(this.searchSuggestionAdapter);
         this.searchSuggestionAdapter.setOnSearchSuggestionClicked(this::executeSuggestion);
         this.touchHelper = new ItemTouchHelper(this.callback);
@@ -682,9 +681,9 @@ public class ConversationsOverviewFragment extends XmppFragment {
             linearLayoutManager.scrollToPositionWithOffset(
                     scrollPosition.position, scrollPosition.offset);
             if (scrollPosition.position > 0) {
-                binding.fab.shrink();
+                binding.fab.hide();
             } else {
-                binding.fab.extend();
+                binding.fab.show();
             }
             binding.fab.clearAnimation();
         }
