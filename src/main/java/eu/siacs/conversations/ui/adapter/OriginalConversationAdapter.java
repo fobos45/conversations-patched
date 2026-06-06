@@ -36,7 +36,7 @@ public class OriginalConversationAdapter
     private final List<Conversation> conversations;
     private OnConversationClickListener listener;
 
-    public ConversationAdapter(XmppActivity activity, List<Conversation> conversations) {
+    public OriginalConversationAdapter(XmppActivity activity, List<Conversation> conversations) {
         this.activity = activity;
         this.conversations = conversations;
     }
