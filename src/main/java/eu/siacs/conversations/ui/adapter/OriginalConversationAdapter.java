@@ -253,8 +253,7 @@ public class OriginalConversationAdapter
         viewHolder.itemView.setOnClickListener(v -> listener.onConversationClick(v, conversation));
 
         final float density = activity.getResources().getDisplayMetrics().density;
-        final int[] paddings = {0, 1, 2, 3, 4};
-        final int pad = Math.round(paddings[1] * density);
+        final int pad = Math.round(5 * density);
         viewHolder.itemView.setPaddingRelative(
                 viewHolder.itemView.getPaddingStart(), pad,
                 viewHolder.itemView.getPaddingEnd(), pad);
