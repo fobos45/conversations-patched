@@ -227,7 +227,7 @@ public class ShareWithActivity extends XmppActivity
     @Override
     protected void onBackendConnected() {
         final Intent intent = getIntent();
-        if (intent != null && this.share != null && this.share.uris.isEmpty() && this.share.text == null) {
+        if (intent != null) {
             populateShare(intent);
         }
         if (xmppConnectionServiceBound
