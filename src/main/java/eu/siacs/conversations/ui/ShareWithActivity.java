@@ -193,6 +193,7 @@ public class ShareWithActivity extends XmppActivity
         if (xmppConnectionServiceBound) {
             xmppConnectionService.populateWithOrderedConversations(
                     mConversations, this.share.uris.isEmpty(), false);
+            mAdapter.notifyDataSetChanged();
         }
     }
 
@@ -225,6 +226,10 @@ public class ShareWithActivity extends XmppActivity
 
     @Override
     protected void onBackendConnected() {
+        final Intent intent = getIntent();
+        if (intent != null && this.share != null && this.share.uris.isEmpty() && this.share.text == null) {
+            populateShare(intent);
+        }
         if (xmppConnectionServiceBound
                 && share != null
                 && ((share.contact != null && share.account != null))) {
