@@ -24,6 +24,7 @@ import eu.siacs.conversations.persistance.DatabaseBackend;
 import eu.siacs.conversations.services.ShortcutService;
 import eu.siacs.conversations.services.XmppConnectionService;
 import eu.siacs.conversations.ui.adapter.ConversationAdapter;
+import eu.siacs.conversations.ui.adapter.OriginalConversationAdapter;
 import eu.siacs.conversations.xmpp.Jid;
 import java.util.ArrayList;
 import java.util.List;
@@ -51,7 +52,7 @@ public class ShareWithActivity extends XmppActivity
     private Share share;
 
     private static final int REQUEST_START_NEW_CONVERSATION = 0x0501;
-    private ConversationAdapter mAdapter;
+    private OriginalConversationAdapter mAdapter;
     private final List<Conversation> mConversations = new ArrayList<>();
 
     protected void onActivityResult(
@@ -110,7 +111,7 @@ public class ShareWithActivity extends XmppActivity
         Activities.setStatusAndNavigationBarColors(this, binding.getRoot());
         setTitle(R.string.title_activity_share_with);
 
-        mAdapter = new ConversationAdapter(this, this.mConversations, false);
+        mAdapter = new OriginalConversationAdapter(this, this.mConversations);
         binding.chooseConversationList.setLayoutManager(
                 new LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false));
         binding.chooseConversationList.setAdapter(mAdapter);
