@@ -367,6 +367,13 @@ public class ConversationsActivity extends QrCodeProcessingActivity
         if (isViewOrShareIntent(intent)) {
             pendingViewIntent.push(intent);
             setIntent(createLauncherIntent(this));
+        } else if (intent != null && (Intent.ACTION_SEND.equals(intent.getAction()) || Intent.ACTION_SEND_MULTIPLE.equals(intent.getAction()))) {
+            final Intent shareIntent = new Intent(this, ShareWithActivity.class);
+            shareIntent.setAction(intent.getAction());
+            shareIntent.setType(intent.getType());
+            shareIntent.putExtras(intent);
+            startActivity(shareIntent);
+            finish();
         }
     }
 
