@@ -192,7 +192,7 @@ public class ShareWithActivity extends XmppActivity
         populateShare(intent);
         if (xmppConnectionServiceBound) {
             xmppConnectionService.populateWithOrderedConversations(
-                    mConversations, this.share.uris.isEmpty(), false);
+                    mConversations, true, false);
             mAdapter.notifyDataSetChanged();
         }
     }
@@ -300,7 +300,7 @@ public class ShareWithActivity extends XmppActivity
     public void refreshUiReal() {
         // TODO inject desired order to not resort on refresh
         xmppConnectionService.populateWithOrderedConversations(
-                mConversations, this.share != null && this.share.uris.isEmpty(), false);
+                mConversations, true, false);
         mAdapter.notifyDataSetChanged();
     }
 }
