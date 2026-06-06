@@ -250,6 +250,8 @@ public class OriginalConversationAdapter
                 conversation,
                 viewHolder.binding.conversationImage,
                 R.dimen.avatar_on_conversation_overview);
+        viewHolder.binding.serverName.setText(conversation.getAccount().getServer());
+        viewHolder.binding.serverName.setVisibility(View.VISIBLE);
         viewHolder.itemView.setOnClickListener(v -> listener.onConversationClick(v, conversation));
 
         final float density = activity.getResources().getDisplayMetrics().density;
