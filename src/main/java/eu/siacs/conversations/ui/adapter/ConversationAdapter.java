@@ -118,9 +118,14 @@ public class ConversationAdapter
 
     // Flat list mixing headers (String = server) and items (Conversation)
     private final List<Object> items = new ArrayList<>();
+    private boolean showHeaders = true;
 
     private void rebuildItems() {
         items.clear();
+        if (!showHeaders) {
+            items.addAll(conversations);
+            return;
+        }
         String lastServer = null;
         for (final Conversation c : conversations) {
             final String server = c.getAccount().getServer();
@@ -133,8 +138,13 @@ public class ConversationAdapter
     }
 
     public ConversationAdapter(XmppActivity activity, List<Conversation> conversations) {
+        this(activity, conversations, true);
+    }
+
+    public ConversationAdapter(XmppActivity activity, List<Conversation> conversations, boolean showHeaders) {
         this.activity = activity;
         this.conversations = conversations;
+        this.showHeaders = showHeaders;
         rebuildItems();
         setHasStableIds(true);
     }

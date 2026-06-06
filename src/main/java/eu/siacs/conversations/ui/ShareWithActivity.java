@@ -110,7 +110,7 @@ public class ShareWithActivity extends XmppActivity
         Activities.setStatusAndNavigationBarColors(this, binding.getRoot());
         setTitle(R.string.title_activity_share_with);
 
-        mAdapter = new ConversationAdapter(this, this.mConversations);
+        mAdapter = new ConversationAdapter(this, this.mConversations, false);
         binding.chooseConversationList.setLayoutManager(
                 new LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false));
         binding.chooseConversationList.setAdapter(mAdapter);
