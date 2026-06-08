@@ -99,6 +99,7 @@ import eu.siacs.conversations.utils.ReplacingSerialSingleThreadExecutor;
 import eu.siacs.conversations.utils.Resolver;
 import eu.siacs.conversations.utils.SerialSingleThreadExecutor;
 import eu.siacs.conversations.utils.TorServiceUtils;
+import eu.siacs.conversations.utils.YggdrasilManager;
 import eu.siacs.conversations.utils.WakeLockHelper;
 import eu.siacs.conversations.xml.Element;
 import eu.siacs.conversations.xml.LocalizedContent;
@@ -1057,6 +1058,9 @@ public class XmppConnectionService extends Service {
     @Override
     public void onCreate() {
         LibIdnXmppStringprep.setup();
+        if (appSettings.isUseYggdrasil()) {
+            YggdrasilManager.getInstance().start(this);
+        }
         if (Compatibility.twentySix()) {
             mNotificationService.initializeChannels();
         }
@@ -1254,6 +1258,7 @@ public class XmppConnectionService extends Service {
 
     @Override
     public void onDestroy() {
+        YggdrasilManager.getInstance().stop();
         try {
             unregisterReceiver(this.mInternalEventReceiver);
             unregisterReceiver(this.mInternalRestrictedEventReceiver);

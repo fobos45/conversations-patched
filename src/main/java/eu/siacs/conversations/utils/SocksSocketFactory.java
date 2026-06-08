@@ -130,6 +130,13 @@ public class SocksSocketFactory {
                 port);
     }
 
+    public static Socket createSocketOverYggdrasil(String destination, int port) throws IOException {
+        return createSocket(
+                new InetSocketAddress(InetAddress.getByAddress(LOCALHOST), YggdrasilManager.SOCKS_PORT),
+                destination,
+                port);
+    }
+
     private static class SocksConnectionException extends IOException {
         SocksConnectionException(String message) {
             super(message);

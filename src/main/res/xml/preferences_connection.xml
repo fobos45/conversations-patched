@@ -14,6 +14,12 @@
             android:key="use_tor"
             android:summary="@string/pref_use_tor_summary"
             android:title="@string/pref_use_tor" />
+        <SwitchPreferenceCompat
+            android:defaultValue="@bool/use_yggdrasil"
+            android:icon="@drawable/ic_network_node_24dp"
+            android:key="use_yggdrasil"
+            android:summary="@string/pref_use_yggdrasil_summary"
+            android:title="@string/pref_use_yggdrasil" />
     </PreferenceCategory>
 
     <PreferenceCategory

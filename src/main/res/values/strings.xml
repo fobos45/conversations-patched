@@ -530,6 +530,8 @@
     <string name="pref_connection_options">Connection</string>
     <string name="pref_use_tor">Connect via Tor</string>
     <string name="pref_use_tor_summary">Tunnel all connections through the Tor network. Requires Orbot</string>
+    <string name="pref_use_yggdrasil">Connect via Yggdrasil</string>
+    <string name="pref_use_yggdrasil_summary">Tunnel XMPP connections through the Yggdrasil overlay network. No VPN slot required</string>
     <string name="account_settings_hostname">Hostname</string>
     <string name="account_settings_port">Port</string>
     <string name="hostname_or_onion">Server- or .onion-address</string>

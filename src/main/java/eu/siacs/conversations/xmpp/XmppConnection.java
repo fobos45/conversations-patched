@@ -342,8 +342,54 @@ public class XmppConnection implements Runnable {
             final boolean useTorSetting = appSettings.isUseTor();
             final boolean extended = appSettings.isExtendedConnectionOptions();
             final boolean useTor = useTorSetting || account.isOnion();
+            final boolean useYggdrasil = appSettings.isUseYggdrasil();
             // TODO collapse Tor usage into normal connection code path
-            if (useTor) {
+            if (useYggdrasil) {
+                final var seeOtherHost = this.seeOtherHostResolverResult;
+                final var hostname = account.getHostname().trim();
+                final var port = account.getPort();
+                final Resolver.Result resume = streamId == null ? null : streamId.location;
+                final Resolver.Result viaYgg;
+                if (resume != null) {
+                    viaYgg = resume;
+                } else if (seeOtherHost != null) {
+                    viaYgg = seeOtherHost;
+                } else if (hostname.isEmpty() || port < 0) {
+                    viaYgg =
+                            Iterables.getOnlyElement(
+                                    Resolver.fromHardCoded(
+                                            account.getServer(), Resolver.XMPP_PORT_STARTTLS));
+                } else {
+                    viaYgg = Iterables.getOnlyElement(Resolver.fromHardCoded(hostname, port));
+                    this.verifiedHostname = hostname;
+                }
+
+                Log.d(Config.LOGTAG, account.getJid().asBareJid() + " via Yggdrasil: " + viaYgg);
+
+                localSocket =
+                        SocksSocketFactory.createSocketOverYggdrasil(
+                                viaYgg.asDestination(), viaYgg.getPort());
+
+                if (viaYgg.isDirectTls()) {
+                    localSocket = upgradeSocketToTls(localSocket);
+                    features.encryptionEnabled = true;
+                }
+
+                try {
+                    if (startXmpp(localSocket)) {
+                        this.currentResolverResult = viaYgg;
+                        this.seeOtherHostResolverResult = null;
+                    }
+                } catch (final InterruptedException e) {
+                    Log.d(
+                            Config.LOGTAG,
+                            account.getJid().asBareJid()
+                                    + ": thread was interrupted before beginning stream");
+                    return;
+                } catch (final Exception e) {
+                    throw new IOException("Could not start stream", e);
+                }
+            } else if (useTor) {
                 final var seeOtherHost = this.seeOtherHostResolverResult;
                 final var hostname = account.getHostname().trim();
                 final var port = account.getPort();
