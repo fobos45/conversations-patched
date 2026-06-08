@@ -40,23 +40,46 @@ jobs:
           ndk-version: r21e
           add-to-path: false
 
-      - name: Build Yggdrasil AAR
+      - name: Build Yggdrasil SOCKS AAR
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: |
-          git clone --depth=1 https://github.com/yggdrasil-network/yggdrasil-go /tmp/yggdrasil-go
-          cd /tmp/yggdrasil-go
-          go install golang.org/x/mobile/cmd/gomobile@latest
-          go install golang.org/x/mobile/cmd/gobind@latest
-          gomobile init
-          ./contrib/mobile/build -a
-          YGG_AAR=$(find /tmp/yggdrasil-go -name "yggdrasil.aar" | head -1)
-          YGG_JAR=$(find /tmp/yggdrasil-go -name "yggdrasil-sources.jar" | head -1)
-          echo "AAR: $YGG_AAR"
-          echo "JAR: $YGG_JAR"
+          # Clone yggdrasil-go as dependency source
+          git clone --depth=1 --branch v0.5.12 \
+            https://github.com/yggdrasil-network/yggdrasil-go /tmp/yggdrasil-go
+
+          # Set up our wrapper module
+          mkdir -p /tmp/yggmobile
+          cp -r $GITHUB_WORKSPACE/.yggmobile/* /tmp/yggmobile/ 2>/dev/null || true
+
+          # Create wrapper module inline
+          cat > /tmp/yggmobile/go.mod << 'GOMOD'
+module github.com/conversations-patched/yggdrasil-socks
+
+go 1.21
+
+require (
+    github.com/yggdrasil-network/yggdrasil-go v0.5.12
+    golang.org/x/mobile v0.0.0-20231127183840-76ac6878050a
+)
+
+replace github.com/yggdrasil-network/yggdrasil-go => /tmp/yggdrasil-go
+GOMOD
+
+          mkdir -p /tmp/yggmobile/yggmobile
+          cp $GITHUB_WORKSPACE/yggmobile/yggmobile.go /tmp/yggmobile/yggmobile/
+
+          cd /tmp/yggmobile
+          go mod tidy
+          gomobile bind \
+            -target android/arm64,android/arm,android/amd64 \
+            -androidapi 21 \
+            -o /tmp/yggmobile.aar \
+            ./yggmobile/
+
           mkdir -p $GITHUB_WORKSPACE/libs
-          cp "$YGG_AAR" $GITHUB_WORKSPACE/libs/yggdrasil.aar
-          cp "$YGG_JAR" $GITHUB_WORKSPACE/libs/yggdrasil-sources.jar
+          cp /tmp/yggmobile.aar $GITHUB_WORKSPACE/libs/yggdrasil.aar
+          cp /tmp/yggmobile-sources.jar $GITHUB_WORKSPACE/libs/yggdrasil-sources.jar
 
       - name: Inspect Yggdrasil AAR classes
         run: |
