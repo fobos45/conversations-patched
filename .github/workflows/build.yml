@@ -33,21 +33,23 @@ jobs:
           go install golang.org/x/mobile/cmd/gobind@latest
           gomobile init
 
+      - name: Install Android NDK r21e
+        run: |
+          echo "y" | $ANDROID_HOME/tools/bin/sdkmanager "ndk;21.4.7075529" || true
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/21.4.7075529" >> $GITHUB_ENV
+
       - name: Build Yggdrasil AAR
         run: |
           git clone --depth=1 https://github.com/yggdrasil-network/yggdrasil-go /tmp/yggdrasil-go
           cd /tmp/yggdrasil-go
-          go get -tool golang.org/x/mobile/cmd/gobind@latest
-          go mod tidy
+          go install golang.org/x/mobile/cmd/gomobile@latest
+          go install golang.org/x/mobile/cmd/gobind@latest
           gomobile init
-          gomobile bind \
-            -target android/arm64,android/arm,android/amd64 \
-            -androidapi 21 \
-            -o /tmp/yggdrasil.aar \
-            ./...
+          mkdir -p app/libs
+          ./contrib/mobile/build -a
           mkdir -p $GITHUB_WORKSPACE/libs
-          cp /tmp/yggdrasil.aar $GITHUB_WORKSPACE/libs/yggdrasil.aar
-          cp /tmp/yggdrasil-sources.jar $GITHUB_WORKSPACE/libs/yggdrasil-sources.jar
+          cp app/libs/yggdrasil.aar $GITHUB_WORKSPACE/libs/yggdrasil.aar
+          cp app/libs/yggdrasil-sources.jar $GITHUB_WORKSPACE/libs/yggdrasil-sources.jar
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
