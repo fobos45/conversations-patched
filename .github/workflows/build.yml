@@ -57,9 +57,6 @@ jobs:
           mkdir -p $GITHUB_WORKSPACE/libs
           cp "$YGG_AAR" $GITHUB_WORKSPACE/libs/yggdrasil.aar
           cp "$YGG_JAR" $GITHUB_WORKSPACE/libs/yggdrasil-sources.jar
-          mkdir -p $GITHUB_WORKSPACE/libs
-          cp app/libs/yggdrasil.aar $GITHUB_WORKSPACE/libs/yggdrasil.aar
-          cp app/libs/yggdrasil-sources.jar $GITHUB_WORKSPACE/libs/yggdrasil-sources.jar
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
