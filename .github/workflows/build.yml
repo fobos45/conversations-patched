@@ -61,10 +61,12 @@ jobs:
       - name: Inspect Yggdrasil AAR classes
         run: |
           unzip -p $GITHUB_WORKSPACE/libs/yggdrasil.aar classes.jar > /tmp/classes.jar
-          echo "=== All classes ==="
-          jar tf /tmp/classes.jar | sort
-          echo "=== Sources jar ==="
-          jar tf $GITHUB_WORKSPACE/libs/yggdrasil-sources.jar | sort
+          echo "=== mobile.Yggdrasil methods ==="
+          javap -p -cp /tmp/classes.jar mobile.Yggdrasil
+          echo "=== mobile.Mobile methods ==="
+          javap -p -cp /tmp/classes.jar mobile.Mobile
+          echo "=== config.NodeConfig methods ==="
+          javap -p -cp /tmp/classes.jar config.NodeConfig
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
