@@ -263,7 +263,7 @@ public class AppSettings {
     }
 
     public boolean isUseYggdrasil() {
-        return getBooleanPreference(USE_YGGDRASIL, false);
+        return getBooleanPreference(USE_YGGDRASIL, R.bool.use_yggdrasil);
     }
 
     public boolean isUseRelays() {
