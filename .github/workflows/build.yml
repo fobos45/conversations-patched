@@ -49,11 +49,14 @@ jobs:
           go install golang.org/x/mobile/cmd/gomobile@latest
           go install golang.org/x/mobile/cmd/gobind@latest
           gomobile init
-          mkdir -p app/libs
           ./contrib/mobile/build -a
+          YGG_AAR=$(find /tmp/yggdrasil-go -name "yggdrasil.aar" | head -1)
+          YGG_JAR=$(find /tmp/yggdrasil-go -name "yggdrasil-sources.jar" | head -1)
+          echo "AAR: $YGG_AAR"
+          echo "JAR: $YGG_JAR"
           mkdir -p $GITHUB_WORKSPACE/libs
-          cp /tmp/yggdrasil-go/yggdrasil.aar $GITHUB_WORKSPACE/libs/yggdrasil.aar
-          cp /tmp/yggdrasil-go/yggdrasil-sources.jar $GITHUB_WORKSPACE/libs/yggdrasil-sources.jar
+          cp "$YGG_AAR" $GITHUB_WORKSPACE/libs/yggdrasil.aar
+          cp "$YGG_JAR" $GITHUB_WORKSPACE/libs/yggdrasil-sources.jar
           mkdir -p $GITHUB_WORKSPACE/libs
           cp app/libs/yggdrasil.aar $GITHUB_WORKSPACE/libs/yggdrasil.aar
           cp app/libs/yggdrasil-sources.jar $GITHUB_WORKSPACE/libs/yggdrasil-sources.jar
