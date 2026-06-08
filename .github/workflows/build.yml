@@ -40,6 +40,17 @@ jobs:
           ndk-version: r21e
           add-to-path: false
 
+      - name: Inspect yggdrasil-go API
+        run: |
+          echo "=== core.New signature ==="
+          grep -n "^func New" /tmp/yggdrasil-go/src/core/*.go
+          echo "=== core.Core methods ==="
+          grep -n "^func (c \*Core)" /tmp/yggdrasil-go/src/core/*.go | head -30
+          echo "=== multicast.New signature ==="
+          grep -n "^func New" /tmp/yggdrasil-go/src/multicast/*.go
+          echo "=== config.NodeConfig fields ==="
+          grep -n "Peers\|IfName\|Listen" /tmp/yggdrasil-go/src/config/config.go | head -20
+
       - name: Build Yggdrasil SOCKS AAR
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
