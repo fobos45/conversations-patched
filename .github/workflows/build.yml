@@ -51,10 +51,9 @@ jobs:
           gomobile init
           mkdir -p app/libs
           ./contrib/mobile/build -a
-          echo "=== Find AAR ==="
-          find /tmp/yggdrasil-go -name "*.aar" -o -name "*.jar" 2>/dev/null
-          echo "=== ls contrib/mobile ==="
-          ls -la /tmp/yggdrasil-go/contrib/mobile/
+          mkdir -p $GITHUB_WORKSPACE/libs
+          cp /tmp/yggdrasil-go/yggdrasil.aar $GITHUB_WORKSPACE/libs/yggdrasil.aar
+          cp /tmp/yggdrasil-go/yggdrasil-sources.jar $GITHUB_WORKSPACE/libs/yggdrasil-sources.jar
           mkdir -p $GITHUB_WORKSPACE/libs
           cp app/libs/yggdrasil.aar $GITHUB_WORKSPACE/libs/yggdrasil.aar
           cp app/libs/yggdrasil-sources.jar $GITHUB_WORKSPACE/libs/yggdrasil-sources.jar
