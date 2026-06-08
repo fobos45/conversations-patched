@@ -36,14 +36,28 @@ jobs:
       - name: Build Yggdrasil AAR
         run: |
           git clone --depth=1 https://github.com/yggdrasil-network/yggdrasil-go /tmp/yggdrasil-go
-          cd /tmp/yggdrasil-go
-          go get golang.org/x/mobile/cmd/gobind
+
+          # Create a separate module to run gomobile from
+          mkdir -p /tmp/gomobile-build
+          cd /tmp/gomobile-build
+          go mod init gomobile-build
+          go get golang.org/x/mobile/cmd/gomobile@latest
+          go get golang.org/x/mobile/cmd/gobind@latest
           go mod tidy
+          gomobile init
+
+          # Now bind yggdrasil from the separate module context
+          cd /tmp/yggdrasil-go
+          go get -tool golang.org/x/mobile/cmd/gobind@latest
+          go mod tidy
+
+          cd /tmp/gomobile-build
           gomobile bind \
             -target android/arm64,android/arm,android/amd64 \
             -androidapi 21 \
             -o /tmp/yggdrasil.aar \
-            ./...
+            github.com/yggdrasil-network/yggdrasil-go/...
+
           mkdir -p $GITHUB_WORKSPACE/libs
           cp /tmp/yggdrasil.aar $GITHUB_WORKSPACE/libs/yggdrasil.aar
           cp /tmp/yggdrasil-sources.jar $GITHUB_WORKSPACE/libs/yggdrasil-sources.jar
