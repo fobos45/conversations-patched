@@ -37,6 +37,8 @@ jobs:
         run: |
           git clone --depth=1 https://github.com/yggdrasil-network/yggdrasil-go /tmp/yggdrasil-go
           cd /tmp/yggdrasil-go
+          go get golang.org/x/mobile/cmd/gobind
+          go mod tidy
           gomobile bind \
             -target android/arm64,android/arm,android/amd64 \
             -androidapi 21 \
