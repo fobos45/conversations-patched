@@ -42,14 +42,14 @@ jobs:
 
       - name: Inspect yggdrasil-go API
         run: |
+          echo "=== Directory structure ==="
+          find /tmp/yggdrasil-go -name "*.go" | grep -v "_test.go" | head -40
           echo "=== core.New signature ==="
-          grep -n "^func New" /tmp/yggdrasil-go/src/core/*.go
-          echo "=== core.Core methods ==="
-          grep -n "^func (c \*Core)" /tmp/yggdrasil-go/src/core/*.go | head -30
-          echo "=== multicast.New signature ==="
-          grep -n "^func New" /tmp/yggdrasil-go/src/multicast/*.go
-          echo "=== config.NodeConfig fields ==="
-          grep -n "Peers\|IfName\|Listen" /tmp/yggdrasil-go/src/config/config.go | head -20
+          grep -rn "^func New" /tmp/yggdrasil-go/ --include="*.go" | grep -v "_test.go" | head -20
+          echo "=== Core methods ==="
+          grep -rn "^func (c \*Core)" /tmp/yggdrasil-go/ --include="*.go" | head -20
+          echo "=== config fields ==="
+          grep -rn "Peers\|IfName\|Listen" /tmp/yggdrasil-go/ --include="*.go" | grep "type\|struct\| Peers\| IfName" | head -20
 
       - name: Build Yggdrasil SOCKS AAR
         env:
