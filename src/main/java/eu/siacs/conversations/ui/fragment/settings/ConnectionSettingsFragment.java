@@ -5,6 +5,7 @@ import android.util.Log;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.preference.SwitchPreferenceCompat;
 import com.google.common.base.Strings;
 import eu.siacs.conversations.AppSettings;
 import eu.siacs.conversations.Config;
@@ -12,6 +13,7 @@ import eu.siacs.conversations.R;
 import eu.siacs.conversations.entities.Account;
 import eu.siacs.conversations.services.QuickConversationsService;
 import eu.siacs.conversations.utils.Resolver;
+import eu.siacs.conversations.utils.YggdrasilManager;
 import java.util.Arrays;
 
 public class ConnectionSettingsFragment extends XmppPreferenceFragment {
@@ -40,6 +42,23 @@ public class ConnectionSettingsFragment extends XmppPreferenceFragment {
             groupsAndConferences.setVisible(false);
             channelDiscovery.setVisible(false);
         }
+        updateYggdrasilSummary();
+    }
+
+    private void updateYggdrasilSummary() {
+        final SwitchPreferenceCompat yggPref = findPreference(AppSettings.USE_YGGDRASIL);
+        if (yggPref == null) return;
+        final YggdrasilManager mgr = YggdrasilManager.getInstance();
+        if (mgr.isRunning()) {
+            final String addr = yggmobile.Yggmobile.getAddress();
+            if (addr != null && !addr.isEmpty()) {
+                yggPref.setSummary(getString(R.string.pref_use_yggdrasil_summary) + "\n" + addr);
+            } else {
+                yggPref.setSummary(R.string.pref_use_yggdrasil_summary);
+            }
+        } else {
+            yggPref.setSummary(R.string.pref_use_yggdrasil_summary);
+        }
     }
 
     @Override
@@ -59,6 +78,18 @@ public class ConnectionSettingsFragment extends XmppPreferenceFragment {
                 }
                 reconnectAccounts();
                 requireService().reinitializeMuclumbusService();
+            }
+            case AppSettings.USE_YGGDRASIL -> {
+                final var appSettings = new AppSettings(requireContext());
+                if (appSettings.isUseYggdrasil()) {
+                    YggdrasilManager.getInstance().start(requireContext());
+                    // Update summary after short delay to let node start
+                    requireView().postDelayed(this::updateYggdrasilSummary, 2000);
+                } else {
+                    YggdrasilManager.getInstance().stop();
+                    updateYggdrasilSummary();
+                }
+                reconnectAccounts();
             }
             case AppSettings.SHOW_CONNECTION_OPTIONS -> reconnectAccounts();
         }
@@ -87,5 +118,7 @@ public class ConnectionSettingsFragment extends XmppPreferenceFragment {
     public void onStart() {
         super.onStart();
         requireActivity().setTitle(R.string.pref_connection_options);
+        updateYggdrasilSummary();
     }
 }
+
