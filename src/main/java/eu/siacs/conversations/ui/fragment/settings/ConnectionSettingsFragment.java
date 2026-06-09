@@ -83,8 +83,15 @@ public class ConnectionSettingsFragment extends XmppPreferenceFragment {
                 final var appSettings = new AppSettings(requireContext());
                 if (appSettings.isUseYggdrasil()) {
                     YggdrasilManager.getInstance().start(requireContext());
-                    // Update summary after short delay to let node start
-                    requireView().postDelayed(this::updateYggdrasilSummary, 2000);
+                    requireView().postDelayed(() -> {
+                        final String err = YggdrasilManager.getInstance().getLastError();
+                        if (!err.isEmpty()) {
+                            Toast.makeText(requireContext(),
+                                    "Yggdrasil error: " + err,
+                                    Toast.LENGTH_LONG).show();
+                        }
+                        updateYggdrasilSummary();
+                    }, 2000);
                 } else {
                     YggdrasilManager.getInstance().stop();
                     updateYggdrasilSummary();

@@ -36,6 +36,12 @@ public class YggdrasilManager {
         return INSTANCE;
     }
 
+    private String lastError = "";
+
+    public String getLastError() {
+        return lastError;
+    }
+
     public synchronized void start(Context context) {
         if (isRunning()) return;
         try {
@@ -44,9 +50,11 @@ public class YggdrasilManager {
             Log.i(TAG, "Starting Yggdrasil with " + arr.length() + " peers...");
             yggmobile.Yggmobile.start(arr.toString(), SOCKS_PORT);
             String addr = yggmobile.Yggmobile.getAddress();
+            lastError = "";
             Log.i(TAG, "Yggdrasil started, address=" + addr + " socks5=127.0.0.1:" + SOCKS_PORT);
         } catch (Exception e) {
-            Log.e(TAG, "Failed to start Yggdrasil: " + e.getClass().getSimpleName() + ": " + e.getMessage());
+            lastError = e.getClass().getSimpleName() + ": " + e.getMessage();
+            Log.e(TAG, "Failed to start Yggdrasil: " + lastError);
             e.printStackTrace();
         }
     }
