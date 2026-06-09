@@ -47,14 +47,12 @@ jobs:
 
       - name: Inspect yggdrasil-go API
         run: |
-          echo "=== Go files ==="
-          find /tmp/yggdrasil-go -name "*.go" | grep -v "_test.go" | sort
-          echo "=== core.New ==="
-          grep -rn "^func New" /tmp/yggdrasil-go/ --include="*.go" | grep -v "_test.go"
-          echo "=== Core methods ==="
-          grep -rn "^func (c \*Core)" /tmp/yggdrasil-go/ --include="*.go"
-          echo "=== config struct ==="
-          grep -rn "Peers\|IfName" /tmp/yggdrasil-go/ --include="*.go" | grep -v "_test.go" | grep "Peers \|IfName " | head -20
+          echo "=== contrib/mobile/mobile.go ==="
+          cat /tmp/yggdrasil-go/contrib/mobile/mobile.go
+          echo "=== core/api.go Listen ==="
+          cat /tmp/yggdrasil-go/src/core/api.go
+          echo "=== core/core.go New/Stop ==="
+          sed -n '1,80p' /tmp/yggdrasil-go/src/core/core.go
 
       - name: Build Yggdrasil SOCKS AAR
         env:
