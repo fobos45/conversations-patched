@@ -86,8 +86,11 @@ public class ConnectionSettingsFragment extends XmppPreferenceFragment {
                     requireView().postDelayed(() -> {
                         final String err = YggdrasilManager.getInstance().getLastError();
                         if (!err.isEmpty()) {
+                            // Show full error in log and split into chunks for Toast
+                            android.util.Log.e("YggdrasilManager", "FULL ERROR: " + err);
+                            // Show first 200 chars
                             Toast.makeText(requireContext(),
-                                    "Yggdrasil error: " + err,
+                                    "Yggdrasil error: " + err.substring(0, Math.min(err.length(), 200)),
                                     Toast.LENGTH_LONG).show();
                         }
                         updateYggdrasilSummary();

@@ -53,9 +53,15 @@ public class YggdrasilManager {
             lastError = "";
             Log.i(TAG, "Yggdrasil started, address=" + addr + " socks5=127.0.0.1:" + SOCKS_PORT);
         } catch (Exception e) {
-            lastError = e.getClass().getSimpleName() + ": " + e.getMessage();
+            StringBuilder sb = new StringBuilder();
+            Throwable t = e;
+            while (t != null) {
+                sb.append(t.getClass().getSimpleName()).append(": ").append(t.getMessage());
+                t = t.getCause();
+                if (t != null) sb.append(" | caused by: ");
+            }
+            lastError = sb.toString();
             Log.e(TAG, "Failed to start Yggdrasil: " + lastError);
-            e.printStackTrace();
         }
     }
 
