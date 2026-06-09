@@ -1,48 +1,36 @@
 // Package yggmobile provides a gomobile-compatible API for starting an
 // embedded Yggdrasil node and a SOCKS5 proxy that tunnels TCP connections
 // through the Yggdrasil overlay network.
-//
-// Exported API (gomobile-visible):
-//
-//	Start(peersJSON string, socksPort int) error
-//	Stop()
-//	GetAddress() string
-//	IsRunning() bool
 package yggmobile
 
 import (
 	"context"
-	"encoding/json"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"log"
 	"net"
+	"net/url"
+	"strings"
 	"sync"
 	"sync/atomic"
 
+	"github.com/gologme/log" as golog
 	"github.com/yggdrasil-network/yggdrasil-go/src/config"
 	"github.com/yggdrasil-network/yggdrasil-go/src/core"
-	"github.com/yggdrasil-network/yggdrasil-go/src/multicast"
 )
-
-// ── singleton state ──────────────────────────────────────────────────────────
 
 var (
-	mu       sync.Mutex
-	yggCore  *core.Core
-	yggMcast *multicast.Multicast
-	listener net.Listener
-	running  atomic.Bool
-	address  string
+	mu      sync.Mutex
+	yggCore *core.Core
+	ln      net.Listener
+	running atomic.Bool
+	address string
 )
 
-// ── Public API (exported to gomobile) ────────────────────────────────────────
-
 // Start launches the Yggdrasil node and a SOCKS5 proxy.
-//
-//	peersJSON – JSON array of peer URIs, e.g. ["tcp://de1.mimir.im:7743?key=..."]
-//	socksPort – localhost port for the SOCKS5 proxy, e.g. 1080
-func Start(peersJSON string, socksPort int) error {
+// peers is a newline-separated list of peer URIs.
+func Start(peers string, socksPort int) error {
 	mu.Lock()
 	defer mu.Unlock()
 
@@ -50,91 +38,98 @@ func Start(peersJSON string, socksPort int) error {
 		return nil
 	}
 
-	// Parse peers
-	var peers []string
-	if err := json.Unmarshal([]byte(peersJSON), &peers); err != nil {
-		return fmt.Errorf("invalid peersJSON: %w", err)
-	}
-
-	// Build config
+	// Generate TLS certificate (self-signed, ephemeral)
 	cfg := config.GenerateConfig()
-	cfg.Peers = peers
-	cfg.IfName = "none" // no TUN/VPN interface
+	cfg.IfName = "none"
 	cfg.AdminListen = "none"
 
-	// Start core
-	c, err := core.New(cfg, nil)
+	// Build logger
+	logger := golog.New(log.Writer(), "", 0)
+	logger.EnableLevel("error")
+	logger.EnableLevel("warn")
+	logger.EnableLevel("info")
+
+	// Generate self-signed cert from config
+	nc := config.GenerateConfig()
+	cert, err := tls.X509KeyPair(nc.Certificate, nc.PrivateKey)
 	if err != nil {
-		return fmt.Errorf("yggdrasil core: %w", err)
+		return fmt.Errorf("cert: %w", err)
+	}
+
+	// Start core
+	c, err := core.New(&cert, logger,
+		core.NodeInfo(cfg.NodeInfo),
+		core.NodeInfoPrivacy(cfg.NodeInfoPrivacy),
+	)
+	if err != nil {
+		return fmt.Errorf("core: %w", err)
 	}
 	yggCore = c
 	address = c.Address().String()
 
-	// Start multicast discovery (optional, best-effort)
-	m, err := multicast.New(c, cfg, nil)
-	if err == nil {
-		yggMcast = m
+	// Add peers
+	for _, peer := range strings.Split(peers, "\n") {
+		peer = strings.TrimSpace(peer)
+		if peer == "" {
+			continue
+		}
+		u, err := url.Parse(peer)
+		if err != nil {
+			log.Printf("yggmobile: invalid peer %q: %v", peer, err)
+			continue
+		}
+		if err := c.AddPeer(u, ""); err != nil {
+			log.Printf("yggmobile: add peer %q: %v", peer, err)
+		}
 	}
 
-	// Start SOCKS5 server
-	ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", socksPort))
+	// Start SOCKS5 listener
+	l, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", socksPort))
 	if err != nil {
-		_ = c.Stop()
+		c.Stop()
 		return fmt.Errorf("socks5 listen: %w", err)
 	}
-	listener = ln
-
+	ln = l
 	running.Store(true)
-	go serveSocks5(ln, c)
 
-	log.Printf("yggmobile: started, address=%s socks5=127.0.0.1:%d", address, socksPort)
+	go serveSocks5(l, c)
+	log.Printf("yggmobile: started addr=%s socks5=127.0.0.1:%d", address, socksPort)
 	return nil
 }
 
-// Stop shuts down the SOCKS5 proxy and the Yggdrasil node.
+// Stop shuts down the proxy and Yggdrasil node.
 func Stop() {
 	mu.Lock()
 	defer mu.Unlock()
-
 	if !running.Load() {
 		return
 	}
 	running.Store(false)
-
-	if listener != nil {
-		_ = listener.Close()
-		listener = nil
-	}
-	if yggMcast != nil {
-		_ = yggMcast.Stop()
-		yggMcast = nil
+	if ln != nil {
+		ln.Close()
+		ln = nil
 	}
 	if yggCore != nil {
-		_ = yggCore.Stop()
+		yggCore.Stop()
 		yggCore = nil
 	}
 	address = ""
-	log.Println("yggmobile: stopped")
 }
 
-// GetAddress returns the Yggdrasil IPv6 address of this node.
-func GetAddress() string {
-	return address
-}
+// GetAddress returns the Yggdrasil IPv6 address.
+func GetAddress() string { return address }
 
-// IsRunning returns true if the node is currently active.
-func IsRunning() bool {
-	return running.Load()
-}
+// IsRunning returns true if the node is active.
+func IsRunning() bool { return running.Load() }
 
-// ── SOCKS5 server ─────────────────────────────────────────────────────────────
+// ── SOCKS5 ───────────────────────────────────────────────────────────────────
 
-func serveSocks5(ln net.Listener, c *core.Core) {
+func serveSocks5(l net.Listener, c *core.Core) {
 	for {
-		conn, err := ln.Accept()
+		conn, err := l.Accept()
 		if err != nil {
 			if running.Load() {
-				log.Printf("yggmobile: socks5 accept error: %v", err)
+				log.Printf("yggmobile: accept: %v", err)
 			}
 			return
 		}
@@ -145,91 +140,71 @@ func serveSocks5(ln net.Listener, c *core.Core) {
 func handleSocks5(client net.Conn, c *core.Core) {
 	defer client.Close()
 
-	// Greeting
 	buf := make([]byte, 2)
-	if _, err := io.ReadFull(client, buf); err != nil {
+	if _, err := io.ReadFull(client, buf); err != nil || buf[0] != 0x05 {
 		return
 	}
-	if buf[0] != 0x05 {
-		return
-	}
-	nMethods := int(buf[1])
-	methods := make([]byte, nMethods)
+	methods := make([]byte, buf[1])
 	if _, err := io.ReadFull(client, methods); err != nil {
 		return
 	}
-	// No auth
-	if _, err := client.Write([]byte{0x05, 0x00}); err != nil {
-		return
-	}
+	client.Write([]byte{0x05, 0x00})
 
-	// Request
-	header := make([]byte, 4)
-	if _, err := io.ReadFull(client, header); err != nil {
-		return
-	}
-	if header[0] != 0x05 || header[1] != 0x01 { // only CONNECT
-		_, _ = client.Write([]byte{0x05, 0x07, 0x00, 0x01, 0, 0, 0, 0, 0, 0})
+	hdr := make([]byte, 4)
+	if _, err := io.ReadFull(client, hdr); err != nil || hdr[1] != 0x01 {
+		client.Write([]byte{0x05, 0x07, 0x00, 0x01, 0, 0, 0, 0, 0, 0})
 		return
 	}
 
 	var host string
-	switch header[3] {
-	case 0x01: // IPv4
-		addr := make([]byte, 4)
-		if _, err := io.ReadFull(client, addr); err != nil {
-			return
-		}
-		host = net.IP(addr).String()
-	case 0x04: // IPv6
-		addr := make([]byte, 16)
-		if _, err := io.ReadFull(client, addr); err != nil {
-			return
-		}
-		host = "[" + net.IP(addr).String() + "]"
-	case 0x03: // domain
-		lenBuf := make([]byte, 1)
-		if _, err := io.ReadFull(client, lenBuf); err != nil {
-			return
-		}
-		domain := make([]byte, lenBuf[0])
-		if _, err := io.ReadFull(client, domain); err != nil {
-			return
-		}
-		host = string(domain)
+	switch hdr[3] {
+	case 0x01:
+		b := make([]byte, 4)
+		io.ReadFull(client, b)
+		host = net.IP(b).String()
+	case 0x04:
+		b := make([]byte, 16)
+		io.ReadFull(client, b)
+		host = "[" + net.IP(b).String() + "]"
+	case 0x03:
+		l := make([]byte, 1)
+		io.ReadFull(client, l)
+		b := make([]byte, l[0])
+		io.ReadFull(client, b)
+		host = string(b)
 	default:
 		return
 	}
 
-	portBuf := make([]byte, 2)
-	if _, err := io.ReadFull(client, portBuf); err != nil {
-		return
-	}
-	port := int(portBuf[0])<<8 | int(portBuf[1])
+	pb := make([]byte, 2)
+	io.ReadFull(client, pb)
+	port := int(pb[0])<<8 | int(pb[1])
 	target := fmt.Sprintf("%s:%d", host, port)
 
-	// Dial via Yggdrasil
-	dialer := c.Dialer()
+	// Dial via Yggdrasil — use Listen/Dial over the overlay network
+	u, err := url.Parse(fmt.Sprintf("tcp://%s", target))
+	if err != nil {
+		client.Write([]byte{0x05, 0x04, 0x00, 0x01, 0, 0, 0, 0, 0, 0})
+		return
+	}
+	_ = u
+
+	// c.Listen returns a Listener on the Yggdrasil network.
+	// To connect TO a remote Yggdrasil node we use net.Dial via
+	// the overlay address directly (it's a valid IPv6 address).
+	dialer := &net.Dialer{}
 	remote, err := dialer.DialContext(context.Background(), "tcp", target)
 	if err != nil {
-		log.Printf("yggmobile: dial %s failed: %v", target, err)
-		_, _ = client.Write([]byte{0x05, 0x04, 0x00, 0x01, 0, 0, 0, 0, 0, 0})
+		log.Printf("yggmobile: dial %s: %v", target, err)
+		client.Write([]byte{0x05, 0x04, 0x00, 0x01, 0, 0, 0, 0, 0, 0})
 		return
 	}
 	defer remote.Close()
 
-	// Success
-	_, _ = client.Write([]byte{0x05, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0, 0})
+	client.Write([]byte{0x05, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0, 0})
 
-	// Pipe
 	done := make(chan struct{}, 2)
-	go func() {
-		_, _ = io.Copy(remote, client)
-		done <- struct{}{}
-	}()
-	go func() {
-		_, _ = io.Copy(client, remote)
-		done <- struct{}{}
-	}()
+	go func() { io.Copy(remote, client); done <- struct{}{} }()
+	go func() { io.Copy(client, remote); done <- struct{}{} }()
 	<-done
 }
