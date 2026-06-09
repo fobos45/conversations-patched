@@ -3,8 +3,6 @@ package eu.siacs.conversations.utils;
 import android.content.Context;
 import android.util.Log;
 
-import org.json.JSONArray;
-
 import java.util.Arrays;
 import java.util.List;
 
@@ -45,10 +43,9 @@ public class YggdrasilManager {
     public synchronized void start(Context context) {
         if (isRunning()) return;
         try {
-            JSONArray arr = new JSONArray();
-            for (String peer : DEFAULT_PEERS) arr.put(peer);
-            Log.i(TAG, "Starting Yggdrasil with " + arr.length() + " peers...");
-            yggmobile.Yggmobile.start(arr.toString(), SOCKS_PORT);
+            String peers = String.join("\n", DEFAULT_PEERS);
+            Log.i(TAG, "Starting Yggdrasil with " + DEFAULT_PEERS.size() + " peers...");
+            yggmobile.Yggmobile.start(peers, SOCKS_PORT);
             String addr = yggmobile.Yggmobile.getAddress();
             lastError = "";
             Log.i(TAG, "Yggdrasil started, address=" + addr + " socks5=127.0.0.1:" + SOCKS_PORT);
@@ -56,12 +53,20 @@ public class YggdrasilManager {
             StringBuilder sb = new StringBuilder();
             Throwable t = e;
             while (t != null) {
-                sb.append(t.getClass().getSimpleName()).append(": ").append(t.getMessage());
+                sb.append(t.getClass().getSimpleName()).append(": ").append(t.getMessage()).append("\n");
                 t = t.getCause();
-                if (t != null) sb.append(" | caused by: ");
+                if (t != null) sb.append("caused by: ");
             }
             lastError = sb.toString();
             Log.e(TAG, "Failed to start Yggdrasil: " + lastError);
+            // Write to file for inspection
+            try {
+                java.io.File f = new java.io.File(context.getExternalFilesDir(null), "ygg_error.txt");
+                java.io.FileWriter fw = new java.io.FileWriter(f);
+                fw.write(lastError);
+                fw.close();
+                Log.e(TAG, "Error written to: " + f.getAbsolutePath());
+            } catch (java.io.IOException ignored) {}
         }
     }
 
