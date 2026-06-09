@@ -82,6 +82,8 @@ public class ConnectionSettingsFragment extends XmppPreferenceFragment {
             case AppSettings.USE_YGGDRASIL -> {
                 final var appSettings = new AppSettings(requireContext());
                 if (appSettings.isUseYggdrasil()) {
+                    // Start capturing logcat from this process before starting Yggdrasil
+                    startLogcatCapture(requireContext());
                     android.util.Log.e("YGG_UI", "Step 1: before start()");
                     try {
                         YggdrasilManager.getInstance().start(requireContext());
@@ -144,14 +146,54 @@ public class ConnectionSettingsFragment extends XmppPreferenceFragment {
         showCrashReportIfExists();
     }
 
+    private void startLogcatCapture(android.content.Context ctx) {
+        new Thread(() -> {
+            try {
+                // Capture logcat for this process only
+                int pid = android.os.Process.myPid();
+                Process process = Runtime.getRuntime().exec(
+                    new String[]{"logcat", "-d", "--pid=" + pid, "*:V"});
+                java.io.BufferedReader br = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(process.getInputStream()));
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while ((line = br.readLine()) != null) {
+                    sb.append(line).append("\n");
+                }
+                // Also run fresh logcat for 8 seconds after this point
+                Process p2 = Runtime.getRuntime().exec(
+                    new String[]{"logcat", "--pid=" + pid, "*:V"});
+                java.io.BufferedReader br2 = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(p2.getInputStream()));
+                long end = System.currentTimeMillis() + 8000;
+                while (System.currentTimeMillis() < end) {
+                    if (br2.ready()) {
+                        line = br2.readLine();
+                        if (line != null) sb.append(line).append("\n");
+                    } else {
+                        Thread.sleep(50);
+                    }
+                }
+                p2.destroy();
+                String log = sb.toString();
+                android.util.Log.e("YGG_UI", "Captured " + log.length() + " chars of logcat");
+                // Write to cache
+                java.io.FileWriter fw = new java.io.FileWriter(
+                    new java.io.File(ctx.getCacheDir(), "ygg_logcat.txt"));
+                fw.write(log);
+                fw.close();
+            } catch (Exception e) {
+                android.util.Log.e("YGG_UI", "logcat capture failed: " + e);
+            }
+        }, "LogcatCapture").start();
+    }
+
     private void showCrashReportIfExists() {
         // Check multiple possible error files
-        java.io.File f = new java.io.File(requireContext().getCacheDir(), "stacktrace.txt");
+        java.io.File f = new java.io.File(requireContext().getCacheDir(), "ygg_logcat.txt");
+        if (!f.exists()) f = new java.io.File(requireContext().getCacheDir(), "stacktrace.txt");
         if (!f.exists()) f = new java.io.File(requireContext().getCacheDir(), "ygg_error.txt");
-        if (!f.exists()) f = new java.io.File(requireContext().getFilesDir(), "ygg_error.txt");
-        if (!f.exists()) f = new java.io.File(android.os.Environment.getExternalStorageDirectory(), "ygg_error.txt");
         if (!f.exists()) return;
-        final String fileName = f.getName();
         try {
             String report = com.google.common.io.Files.asCharSource(f,
                     com.google.common.base.Charsets.UTF_8).read();
