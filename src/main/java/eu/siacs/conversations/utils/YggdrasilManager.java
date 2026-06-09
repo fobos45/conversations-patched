@@ -59,14 +59,18 @@ public class YggdrasilManager {
             }
             lastError = sb.toString();
             Log.e(TAG, "Failed to start Yggdrasil: " + lastError);
-            // Write to file for inspection
+            // Write to Downloads folder
             try {
-                java.io.File f = new java.io.File(context.getExternalFilesDir(null), "ygg_error.txt");
+                java.io.File downloads = android.os.Environment.getExternalStoragePublicDirectory(
+                        android.os.Environment.DIRECTORY_DOWNLOADS);
+                java.io.File f = new java.io.File(downloads, "ygg_error.txt");
                 java.io.FileWriter fw = new java.io.FileWriter(f);
                 fw.write(lastError);
                 fw.close();
                 Log.e(TAG, "Error written to: " + f.getAbsolutePath());
-            } catch (java.io.IOException ignored) {}
+            } catch (java.io.IOException ex) {
+                Log.e(TAG, "Could not write error file: " + ex.getMessage());
+            }
         }
     }
 
