@@ -65,21 +65,17 @@ func Start(peers string, socksPort int) error {
 
 	stopCh = make(chan struct{})
 
-	// ── 1. Yggdrasil config & logger ─────────────────────────────────────────
-	cfg := config.GenerateConfig()
-	cfg.IfName = "none"
-	cfg.AdminListen = "none"
-
+	// ── 1. Logger ─────────────────────────────────────────────────────────────
 	logger := golog.New(log.Writer(), "", 0)
 	logger.EnableLevel("error")
 	logger.EnableLevel("warn")
 	logger.EnableLevel("info")
 
+	// ── 1b. Generate config to get TLS certificate ────────────────────────────
+	cfg := config.GenerateConfig()
+
 	// ── 2. Build core options ─────────────────────────────────────────────────
-	opts := []core.SetupOption{
-		core.NodeInfo(cfg.NodeInfo),
-		core.NodeInfoPrivacy(cfg.NodeInfoPrivacy),
-	}
+	opts := []core.SetupOption{}
 	for _, peer := range strings.Split(peers, "\n") {
 		peer = strings.TrimSpace(peer)
 		if peer != "" {
