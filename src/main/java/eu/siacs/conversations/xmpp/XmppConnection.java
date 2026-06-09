@@ -59,6 +59,7 @@ import eu.siacs.conversations.utils.NetworkManager;
 import eu.siacs.conversations.utils.Resolver;
 import eu.siacs.conversations.utils.SSLSockets;
 import eu.siacs.conversations.utils.SocksSocketFactory;
+import eu.siacs.conversations.utils.YggdrasilManager;
 import eu.siacs.conversations.utils.XmlHelper;
 import eu.siacs.conversations.xml.LocalizedContent;
 import eu.siacs.conversations.xml.Namespace;
@@ -345,6 +346,13 @@ public class XmppConnection implements Runnable {
             final boolean useYggdrasil = appSettings.isUseYggdrasil();
             // TODO collapse Tor usage into normal connection code path
             if (useYggdrasil) {
+                // Ensure Yggdrasil node is running
+                final YggdrasilManager yggMgr = YggdrasilManager.getInstance();
+                if (!yggMgr.isRunning()) {
+                    yggMgr.start(mXmppConnectionService);
+                    // Give node a moment to start
+                    try { Thread.sleep(1000); } catch (InterruptedException ignored) {}
+                }
                 final var seeOtherHost = this.seeOtherHostResolverResult;
                 final var hostname = account.getHostname().trim();
                 final var port = account.getPort();
@@ -616,7 +624,11 @@ public class XmppConnection implements Runnable {
                     };
             this.changeState(target);
         } catch (final SocksSocketFactory.SocksProxyNotFoundException e) {
-            this.changeState(Account.State.TOR_NOT_AVAILABLE);
+            if (new AppSettings(mXmppConnectionService).isUseYggdrasil()) {
+                this.changeState(Account.State.YGGDRASIL_NOT_AVAILABLE);
+            } else {
+                this.changeState(Account.State.TOR_NOT_AVAILABLE);
+            }
         } catch (final XmlReader.XmlMaxDepthReachedException e) {
             Log.d(
                     Config.LOGTAG,

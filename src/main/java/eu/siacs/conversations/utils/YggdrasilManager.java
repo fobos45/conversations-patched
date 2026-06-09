@@ -41,11 +41,13 @@ public class YggdrasilManager {
         try {
             JSONArray arr = new JSONArray();
             for (String peer : DEFAULT_PEERS) arr.put(peer);
+            Log.i(TAG, "Starting Yggdrasil with " + arr.length() + " peers...");
             yggmobile.Yggmobile.start(arr.toString(), SOCKS_PORT);
-            Log.i(TAG, "Yggdrasil started, address=" + yggmobile.Yggmobile.getAddress()
-                    + " socks5=127.0.0.1:" + SOCKS_PORT);
+            String addr = yggmobile.Yggmobile.getAddress();
+            Log.i(TAG, "Yggdrasil started, address=" + addr + " socks5=127.0.0.1:" + SOCKS_PORT);
         } catch (Exception e) {
-            Log.e(TAG, "Failed to start Yggdrasil: " + e.getMessage());
+            Log.e(TAG, "Failed to start Yggdrasil: " + e.getClass().getSimpleName() + ": " + e.getMessage());
+            e.printStackTrace();
         }
     }
 

@@ -708,6 +708,7 @@ public class Account extends AbstractEntity implements AvatarService.Avatar {
         INCOMPATIBLE_SERVER,
         INCOMPATIBLE_CLIENT,
         TOR_NOT_AVAILABLE,
+        YGGDRASIL_NOT_AVAILABLE,
         DOWNGRADE_ATTACK,
         SESSION_FAILURE,
         BIND_FAILURE,
@@ -770,6 +771,7 @@ public class Account extends AbstractEntity implements AvatarService.Avatar {
                 case INCOMPATIBLE_CLIENT -> R.string.account_status_incompatible_client;
                 case CHANNEL_BINDING -> R.string.account_status_channel_binding;
                 case TOR_NOT_AVAILABLE -> R.string.account_status_tor_unavailable;
+                case YGGDRASIL_NOT_AVAILABLE -> R.string.account_status_yggdrasil_unavailable;
                 case BIND_FAILURE -> R.string.account_status_bind_failure;
                 case SESSION_FAILURE -> R.string.session_failure;
                 case DOWNGRADE_ATTACK -> R.string.sasl_downgrade;
