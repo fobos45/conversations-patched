@@ -59,7 +59,7 @@ jobs:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: |
           mkdir -p /tmp/yggmobile/yggmobile
-          printf 'module github.com/conversations-patched/yggdrasil-socks\n\ngo 1.22\n\nrequire (\n\tgithub.com/yggdrasil-network/yggdrasil-go v0.5.12\n\tgolang.org/x/mobile v0.0.0-20231127183840-76ac6878050a\n\tgvisor.dev/gvisor v0.0.0-20240916094748-0a8f5a9481f8\n)\n\nreplace github.com/yggdrasil-network/yggdrasil-go => /tmp/yggdrasil-go\n' > /tmp/yggmobile/go.mod
+          printf 'module github.com/conversations-patched/yggdrasil-socks\n\ngo 1.22\n\nrequire (\n\tgithub.com/yggdrasil-network/yggdrasil-go v0.5.12\n\tgolang.org/x/mobile v0.0.0-20231127183840-76ac6878050a\n\tgithub.com/SagerNet/gvisor v0.0.0-20241012085301-9df2b8924490\n)\n\nreplace github.com/yggdrasil-network/yggdrasil-go => /tmp/yggdrasil-go\n' > /tmp/yggmobile/go.mod
           cp $GITHUB_WORKSPACE/yggmobile/yggmobile.go /tmp/yggmobile/yggmobile/
           cd /tmp/yggmobile
           go get -tool golang.org/x/mobile/cmd/gobind@latest

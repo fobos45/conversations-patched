@@ -25,15 +25,15 @@ import (
 	"github.com/yggdrasil-network/yggdrasil-go/src/core"
 	"github.com/yggdrasil-network/yggdrasil-go/src/ipv6rwc"
 
-	"gvisor.dev/gvisor/pkg/buffer"
-	"gvisor.dev/gvisor/pkg/tcpip"
-	"gvisor.dev/gvisor/pkg/tcpip/adapters/gonet"
-	"gvisor.dev/gvisor/pkg/tcpip/header"
-	"gvisor.dev/gvisor/pkg/tcpip/link/channel"
-	"gvisor.dev/gvisor/pkg/tcpip/network/ipv6"
-	"gvisor.dev/gvisor/pkg/tcpip/stack"
-	"gvisor.dev/gvisor/pkg/tcpip/transport/tcp"
-	"gvisor.dev/gvisor/pkg/tcpip/transport/udp"
+	"github.com/SagerNet/gvisor/pkg/buffer"
+	"github.com/SagerNet/gvisor/pkg/tcpip"
+	"github.com/SagerNet/gvisor/pkg/tcpip/adapters/gonet"
+	"github.com/SagerNet/gvisor/pkg/tcpip/header"
+	"github.com/SagerNet/gvisor/pkg/tcpip/link/channel"
+	"github.com/SagerNet/gvisor/pkg/tcpip/network/ipv6"
+	"github.com/SagerNet/gvisor/pkg/tcpip/stack"
+	"github.com/SagerNet/gvisor/pkg/tcpip/transport/tcp"
+	"github.com/SagerNet/gvisor/pkg/tcpip/transport/udp"
 )
 
 // ── singleton ────────────────────────────────────────────────────────────────
