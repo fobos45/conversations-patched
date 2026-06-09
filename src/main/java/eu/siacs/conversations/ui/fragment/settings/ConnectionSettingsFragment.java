@@ -85,10 +85,17 @@ public class ConnectionSettingsFragment extends XmppPreferenceFragment {
                     YggdrasilManager.getInstance().start(requireContext());
                     requireView().postDelayed(() -> {                        final String err = YggdrasilManager.getInstance().getLastError();
                         android.util.Log.e("YggdrasilManager", "FULL ERROR: " + err);
-                        if (!err.isEmpty()) {
+                        final String errMsg = err.isEmpty() ? "No error but node not running" : err;
+                        {
+                            android.widget.ScrollView sv = new android.widget.ScrollView(requireContext());
+                            android.widget.TextView tv = new android.widget.TextView(requireContext());
+                            tv.setText(errMsg);
+                            tv.setTextIsSelectable(true);
+                            tv.setPadding(32, 16, 32, 16);
+                            sv.addView(tv);
                             new androidx.appcompat.app.AlertDialog.Builder(requireContext())
                                     .setTitle("Yggdrasil Error")
-                                    .setMessage(err)
+                                    .setView(sv)
                                     .setPositiveButton(android.R.string.ok, null)
                                     .show();
                         }
