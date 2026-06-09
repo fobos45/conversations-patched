@@ -1058,9 +1058,10 @@ public class XmppConnectionService extends Service {
     @Override
     public void onCreate() {
         LibIdnXmppStringprep.setup();
-        if (appSettings.isUseYggdrasil()) {
-            YggdrasilManager.getInstance().start(this);
-        }
+        // Yggdrasil is started on demand in XmppConnection.connect()
+        // if (appSettings.isUseYggdrasil()) {
+        //     YggdrasilManager.getInstance().start(this);
+        // }
         if (Compatibility.twentySix()) {
             mNotificationService.initializeChannels();
         }
