@@ -83,8 +83,7 @@ public class ConnectionSettingsFragment extends XmppPreferenceFragment {
                 final var appSettings = new AppSettings(requireContext());
                 if (appSettings.isUseYggdrasil()) {
                     YggdrasilManager.getInstance().start(requireContext());
-                    requireView().postDelayed(() -> {
-                        final String err = YggdrasilManager.getInstance().getLastError();
+                    requireView().postDelayed(() -> {                        final String err = YggdrasilManager.getInstance().getLastError();
                         android.util.Log.e("YggdrasilManager", "FULL ERROR: " + err);
                         if (!err.isEmpty()) {
                             new androidx.appcompat.app.AlertDialog.Builder(requireContext())
@@ -94,7 +93,7 @@ public class ConnectionSettingsFragment extends XmppPreferenceFragment {
                                     .show();
                         }
                         updateYggdrasilSummary();
-                    }, 2000);
+                    }, 5000);
                 } else {
                     YggdrasilManager.getInstance().stop();
                     updateYggdrasilSummary();

@@ -40,7 +40,12 @@ public class YggdrasilManager {
         return lastError;
     }
 
-    public synchronized void start(Context context) {
+    public void start(Context context) {
+        if (isRunning()) return;
+        new Thread(() -> startInternal(context), "YggdrasilStart").start();
+    }
+
+    private synchronized void startInternal(Context context) {
         if (isRunning()) return;
         try {
             String peers = String.join("\n", DEFAULT_PEERS);
@@ -49,28 +54,34 @@ public class YggdrasilManager {
             String addr = yggmobile.Yggmobile.getAddress();
             lastError = "";
             Log.i(TAG, "Yggdrasil started, address=" + addr + " socks5=127.0.0.1:" + SOCKS_PORT);
-        } catch (Exception e) {
+        } catch (Throwable e) {
             StringBuilder sb = new StringBuilder();
             Throwable t = e;
             while (t != null) {
-                sb.append(t.getClass().getSimpleName()).append(": ").append(t.getMessage()).append("\n");
+                sb.append(t.getClass().getName()).append(": ").append(t.getMessage()).append("\n");
+                for (StackTraceElement el : t.getStackTrace()) {
+                    sb.append("  at ").append(el.toString()).append("\n");
+                }
                 t = t.getCause();
-                if (t != null) sb.append("caused by: ");
+                if (t != null) sb.append("caused by:\n");
             }
             lastError = sb.toString();
             Log.e(TAG, "Failed to start Yggdrasil: " + lastError);
-            // Write to Downloads folder
-            try {
-                java.io.File downloads = android.os.Environment.getExternalStoragePublicDirectory(
-                        android.os.Environment.DIRECTORY_DOWNLOADS);
-                java.io.File f = new java.io.File(downloads, "ygg_error.txt");
-                java.io.FileWriter fw = new java.io.FileWriter(f);
-                fw.write(lastError);
-                fw.close();
-                Log.e(TAG, "Error written to: " + f.getAbsolutePath());
-            } catch (java.io.IOException ex) {
-                Log.e(TAG, "Could not write error file: " + ex.getMessage());
-            }
+            writeErrorToDownloads(lastError);
+        }
+    }
+
+    private void writeErrorToDownloads(String text) {
+        try {
+            java.io.File downloads = android.os.Environment.getExternalStoragePublicDirectory(
+                    android.os.Environment.DIRECTORY_DOWNLOADS);
+            java.io.File f = new java.io.File(downloads, "ygg_error.txt");
+            java.io.FileWriter fw = new java.io.FileWriter(f);
+            fw.write(text);
+            fw.close();
+            Log.e(TAG, "Error written to: " + f.getAbsolutePath());
+        } catch (java.io.IOException ex) {
+            Log.e(TAG, "Could not write error file: " + ex.getMessage());
         }
     }
 
