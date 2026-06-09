@@ -82,7 +82,13 @@ public class ConnectionSettingsFragment extends XmppPreferenceFragment {
             case AppSettings.USE_YGGDRASIL -> {
                 final var appSettings = new AppSettings(requireContext());
                 if (appSettings.isUseYggdrasil()) {
-                    YggdrasilManager.getInstance().start(requireContext());
+                    android.util.Log.e("YGG_UI", "Step 1: before start()");
+                    try {
+                        YggdrasilManager.getInstance().start(requireContext());
+                    } catch (Throwable t) {
+                        android.util.Log.e("YGG_UI", "start() threw: " + t);
+                    }
+                    android.util.Log.e("YGG_UI", "Step 2: after start()");
                     requireView().postDelayed(() -> {                        final String err = YggdrasilManager.getInstance().getLastError();
                         android.util.Log.e("YggdrasilManager", "FULL ERROR: " + err);
                         final String errMsg = err.isEmpty() ? "No error but node not running" : err;
@@ -135,6 +141,39 @@ public class ConnectionSettingsFragment extends XmppPreferenceFragment {
         super.onStart();
         requireActivity().setTitle(R.string.pref_connection_options);
         updateYggdrasilSummary();
+        showCrashReportIfExists();
+    }
+
+    private void showCrashReportIfExists() {
+        // Check multiple possible error files
+        java.io.File f = new java.io.File(requireContext().getCacheDir(), "stacktrace.txt");
+        if (!f.exists()) f = new java.io.File(requireContext().getCacheDir(), "ygg_error.txt");
+        if (!f.exists()) f = new java.io.File(requireContext().getFilesDir(), "ygg_error.txt");
+        if (!f.exists()) f = new java.io.File(android.os.Environment.getExternalStorageDirectory(), "ygg_error.txt");
+        if (!f.exists()) return;
+        final String fileName = f.getName();
+        try {
+            String report = com.google.common.io.Files.asCharSource(f,
+                    com.google.common.base.Charsets.UTF_8).read();
+            f.delete();
+            android.widget.ScrollView sv = new android.widget.ScrollView(requireContext());
+            android.widget.TextView tv = new android.widget.TextView(requireContext());
+            tv.setText(report);
+            tv.setTextIsSelectable(true);
+            tv.setPadding(32, 16, 32, 16);
+            sv.addView(tv);
+            new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                    .setTitle("Crash Report")
+                    .setView(sv)
+                    .setPositiveButton("Copy & Close", (d, w) -> {
+                        android.content.ClipboardManager cm = (android.content.ClipboardManager)
+                            requireContext().getSystemService(android.content.Context.CLIPBOARD_SERVICE);
+                        cm.setPrimaryClip(android.content.ClipData.newPlainText("crash", report));
+                        Toast.makeText(requireContext(), "Copied to clipboard", Toast.LENGTH_SHORT).show();
+                    })
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show();
+        } catch (java.io.IOException ignored) {}
     }
 }
 

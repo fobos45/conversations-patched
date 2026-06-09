@@ -27,6 +27,7 @@ public class YggdrasilManager {
     );
 
     private static final YggdrasilManager INSTANCE = new YggdrasilManager();
+    private android.content.Context appContext;
 
     private YggdrasilManager() {}
 
@@ -42,11 +43,22 @@ public class YggdrasilManager {
 
     public void start(Context context) {
         if (isRunning()) return;
+        // First test if native library loads
+        try {
+            String version = yggmobile.Yggmobile.class.getName();
+            Log.i(TAG, "yggmobile class found: " + version);
+        } catch (Throwable e) {
+            lastError = "Library load failed: " + e.getClass().getName() + ": " + e.getMessage();
+            Log.e(TAG, lastError);
+            writeErrorToDownloads(lastError);
+            return;
+        }
         new Thread(() -> startInternal(context), "YggdrasilStart").start();
     }
 
     private synchronized void startInternal(Context context) {
         if (isRunning()) return;
+        appContext = context.getApplicationContext();
         try {
             String peers = String.join("\n", DEFAULT_PEERS);
             Log.i(TAG, "Starting Yggdrasil with " + DEFAULT_PEERS.size() + " peers...");
@@ -72,16 +84,23 @@ public class YggdrasilManager {
     }
 
     private void writeErrorToDownloads(String text) {
-        try {
-            java.io.File downloads = android.os.Environment.getExternalStoragePublicDirectory(
-                    android.os.Environment.DIRECTORY_DOWNLOADS);
-            java.io.File f = new java.io.File(downloads, "ygg_error.txt");
-            java.io.FileWriter fw = new java.io.FileWriter(f);
-            fw.write(text);
-            fw.close();
-            Log.e(TAG, "Error written to: " + f.getAbsolutePath());
-        } catch (java.io.IOException ex) {
-            Log.e(TAG, "Could not write error file: " + ex.getMessage());
+        // Try multiple locations
+        String[] paths = {
+            appContext != null ? appContext.getCacheDir() + "/ygg_error.txt" : null,
+            appContext != null ? appContext.getFilesDir() + "/ygg_error.txt" : null,
+            android.os.Environment.getExternalStorageDirectory() + "/ygg_error.txt",
+        };
+        for (String path : paths) {
+            if (path == null) continue;
+            try {
+                java.io.FileWriter fw = new java.io.FileWriter(path);
+                fw.write(text);
+                fw.close();
+                Log.e(TAG, "Error written to: " + path);
+                return;
+            } catch (java.io.IOException ex) {
+                Log.e(TAG, "Could not write to " + path + ": " + ex.getMessage());
+            }
         }
     }
 
