@@ -59,6 +59,18 @@ jobs:
           git clone --depth=1 --branch v0.5.12 \
             https://github.com/yggdrasil-network/yggdrasil-go /tmp/yggdrasil-go
 
+          echo "=== Go files ==="
+          find /tmp/yggdrasil-go -name "*.go" | grep -v "_test.go" | head -40
+
+          echo "=== core.New ==="
+          grep -rn "^func New" /tmp/yggdrasil-go/ --include="*.go" | head -20
+
+          echo "=== Core methods ==="
+          grep -rn "^func (c \*Core)" /tmp/yggdrasil-go/ --include="*.go" | head -20
+
+          echo "=== config struct ==="
+          grep -rn "Peers\|IfName\|Dialer\|Stop\b" /tmp/yggdrasil-go/ --include="*.go" | grep -v "_test.go" | grep "func\|Peers \|IfName " | head -20
+
           # Set up our wrapper module
           mkdir -p /tmp/yggmobile
           cp -r $GITHUB_WORKSPACE/.yggmobile/* /tmp/yggmobile/ 2>/dev/null || true
