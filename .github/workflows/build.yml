@@ -40,47 +40,29 @@ jobs:
           ndk-version: r21e
           add-to-path: false
 
+      - name: Clone yggdrasil-go
+        run: |
+          git clone --depth=1 --branch v0.5.12 \
+            https://github.com/yggdrasil-network/yggdrasil-go /tmp/yggdrasil-go
+
       - name: Inspect yggdrasil-go API
         run: |
-          echo "=== Directory structure ==="
-          find /tmp/yggdrasil-go -name "*.go" | grep -v "_test.go" | head -40
-          echo "=== core.New signature ==="
-          grep -rn "^func New" /tmp/yggdrasil-go/ --include="*.go" | grep -v "_test.go" | head -20
+          echo "=== Go files ==="
+          find /tmp/yggdrasil-go -name "*.go" | grep -v "_test.go" | sort
+          echo "=== core.New ==="
+          grep -rn "^func New" /tmp/yggdrasil-go/ --include="*.go" | grep -v "_test.go"
           echo "=== Core methods ==="
-          grep -rn "^func (c \*Core)" /tmp/yggdrasil-go/ --include="*.go" | head -20
-          echo "=== config fields ==="
-          grep -rn "Peers\|IfName\|Listen" /tmp/yggdrasil-go/ --include="*.go" | grep "type\|struct\| Peers\| IfName" | head -20
+          grep -rn "^func (c \*Core)" /tmp/yggdrasil-go/ --include="*.go"
+          echo "=== config struct ==="
+          grep -rn "Peers\|IfName" /tmp/yggdrasil-go/ --include="*.go" | grep -v "_test.go" | grep "Peers \|IfName " | head -20
 
       - name: Build Yggdrasil SOCKS AAR
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: |
-          # Clone yggdrasil-go as dependency source
-          git clone --depth=1 --branch v0.5.12 \
-            https://github.com/yggdrasil-network/yggdrasil-go /tmp/yggdrasil-go
-
-          echo "=== Go files ==="
-          find /tmp/yggdrasil-go -name "*.go" | grep -v "_test.go" | head -40
-
-          echo "=== core.New ==="
-          grep -rn "^func New" /tmp/yggdrasil-go/ --include="*.go" | head -20
-
-          echo "=== Core methods ==="
-          grep -rn "^func (c \*Core)" /tmp/yggdrasil-go/ --include="*.go" | head -20
-
-          echo "=== config struct ==="
-          grep -rn "Peers\|IfName\|Dialer\|Stop\b" /tmp/yggdrasil-go/ --include="*.go" | grep -v "_test.go" | grep "func\|Peers \|IfName " | head -20
-
-          # Set up our wrapper module
-          mkdir -p /tmp/yggmobile
-          cp -r $GITHUB_WORKSPACE/.yggmobile/* /tmp/yggmobile/ 2>/dev/null || true
-
-          # Create wrapper module inline
-          printf 'module github.com/conversations-patched/yggdrasil-socks\n\ngo 1.21\n\nrequire (\n\tgithub.com/yggdrasil-network/yggdrasil-go v0.5.12\n\tgolang.org/x/mobile v0.0.0-20231127183840-76ac6878050a\n)\n\nreplace github.com/yggdrasil-network/yggdrasil-go => /tmp/yggdrasil-go\n' > /tmp/yggmobile/go.mod
-
           mkdir -p /tmp/yggmobile/yggmobile
+          printf 'module github.com/conversations-patched/yggdrasil-socks\n\ngo 1.22\n\nrequire (\n\tgithub.com/yggdrasil-network/yggdrasil-go v0.5.12\n\tgolang.org/x/mobile v0.0.0-20231127183840-76ac6878050a\n)\n\nreplace github.com/yggdrasil-network/yggdrasil-go => /tmp/yggdrasil-go\n' > /tmp/yggmobile/go.mod
           cp $GITHUB_WORKSPACE/yggmobile/yggmobile.go /tmp/yggmobile/yggmobile/
-
           cd /tmp/yggmobile
           go get -tool golang.org/x/mobile/cmd/gobind@latest
           go mod tidy
@@ -89,20 +71,9 @@ jobs:
             -androidapi 21 \
             -o /tmp/yggmobile.aar \
             ./yggmobile/
-
           mkdir -p $GITHUB_WORKSPACE/libs
           cp /tmp/yggmobile.aar $GITHUB_WORKSPACE/libs/yggdrasil.aar
           cp /tmp/yggmobile-sources.jar $GITHUB_WORKSPACE/libs/yggdrasil-sources.jar
-
-      - name: Inspect Yggdrasil AAR classes
-        run: |
-          unzip -p $GITHUB_WORKSPACE/libs/yggdrasil.aar classes.jar > /tmp/classes.jar
-          echo "=== mobile.Yggdrasil methods ==="
-          javap -p -cp /tmp/classes.jar mobile.Yggdrasil
-          echo "=== mobile.Mobile methods ==="
-          javap -p -cp /tmp/classes.jar mobile.Mobile
-          echo "=== config.NodeConfig methods ==="
-          javap -p -cp /tmp/classes.jar config.NodeConfig
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
