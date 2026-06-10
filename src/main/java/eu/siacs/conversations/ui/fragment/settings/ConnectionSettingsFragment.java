@@ -48,16 +48,20 @@ public class ConnectionSettingsFragment extends XmppPreferenceFragment {
     private void updateYggdrasilSummary() {
         final SwitchPreferenceCompat yggPref = findPreference(AppSettings.USE_YGGDRASIL);
         if (yggPref == null) return;
-        final YggdrasilManager mgr = YggdrasilManager.getInstance();
-        if (mgr.isRunning()) {
+        if (YggdrasilManager.getInstance().isRunning()) {
             final String addr = yggmobile.Yggmobile.getAddress();
             if (addr != null && !addr.isEmpty()) {
-                yggPref.setSummary(getString(R.string.pref_use_yggdrasil_summary) + "\n" + addr);
+                yggPref.setSummary(getString(R.string.pref_use_yggdrasil_summary) + "\n\n" + addr);
+            } else {
+                yggPref.setSummary(getString(R.string.pref_use_yggdrasil_summary) + "\n\nRunning");
+            }
+        } else {
+            final String err = YggdrasilManager.getInstance().getLastError();
+            if (!err.isEmpty()) {
+                yggPref.setSummary(getString(R.string.pref_use_yggdrasil_summary) + "\n\nError: " + err);
             } else {
                 yggPref.setSummary(R.string.pref_use_yggdrasil_summary);
             }
-        } else {
-            yggPref.setSummary(R.string.pref_use_yggdrasil_summary);
         }
     }
 
