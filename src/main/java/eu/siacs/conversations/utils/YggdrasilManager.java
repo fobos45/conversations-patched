@@ -74,11 +74,15 @@ public class YggdrasilManager {
             executor = Executors.newCachedThreadPool();
             serverSocket = new ServerSocket();
             serverSocket.setReuseAddress(true);
-            serverSocket.bind(new InetSocketAddress(
-                InetAddress.getLoopbackAddress(), SOCKS_PORT));
+            InetAddress loopback = InetAddress.getLoopbackAddress();
+            Log.i(TAG, "Binding SOCKS5 on " + loopback + ":" + SOCKS_PORT);
+            serverSocket.bind(new InetSocketAddress(loopback, SOCKS_PORT));
+            Log.i(TAG, "SOCKS5 bound: " + serverSocket.getLocalSocketAddress()
+                + " closed=" + serverSocket.isClosed());
             running.set(true);
             Log.i(TAG, "SOCKS5 proxy on 127.0.0.1:" + SOCKS_PORT);
             executor.submit(this::acceptLoop);
+            Log.i(TAG, "acceptLoop submitted to executor");
 
         } catch (Throwable e) {
             StringBuilder sb = new StringBuilder();
@@ -95,14 +99,17 @@ public class YggdrasilManager {
     }
 
     private void acceptLoop() {
+        Log.i(TAG, "acceptLoop: started, waiting for connections on port " + SOCKS_PORT);
         while (running.get()) {
             try {
                 Socket client = serverSocket.accept();
+                Log.i(TAG, "acceptLoop: accepted connection from " + client.getRemoteSocketAddress());
                 executor.submit(() -> handleClient(client));
             } catch (IOException e) {
-                if (running.get()) Log.w(TAG, "accept error: " + e.getMessage());
+                if (running.get()) Log.w(TAG, "acceptLoop error: " + e.getClass().getSimpleName() + ": " + e.getMessage());
             }
         }
+        Log.i(TAG, "acceptLoop: stopped");
     }
 
     /**
