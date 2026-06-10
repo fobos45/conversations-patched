@@ -1,7 +1,5 @@
-// Package yggmobile provides a gomobile-compatible API for an embedded
-// Yggdrasil node. TCP connections to Yggdrasil addresses are made via
-// the overlay network using core.DialContext (available in newer versions)
-// or via direct IPv6 routing through the local network stack.
+// Package yggmobile - Yggdrasil node with userspace TCP via gvisor.
+// No system sockets needed for Yggdrasil traffic.
 package yggmobile
 
 import (
@@ -17,17 +15,32 @@ import (
 	"github.com/yggdrasil-network/yggdrasil-go/src/config"
 	"github.com/yggdrasil-network/yggdrasil-go/src/core"
 	"github.com/yggdrasil-network/yggdrasil-go/src/ipv6rwc"
+
+	"github.com/sagernet/gvisor/pkg/buffer"
+	"github.com/sagernet/gvisor/pkg/tcpip"
+	"github.com/sagernet/gvisor/pkg/tcpip/adapters/gonet"
+	"github.com/sagernet/gvisor/pkg/tcpip/header"
+	"github.com/sagernet/gvisor/pkg/tcpip/link/channel"
+	"github.com/sagernet/gvisor/pkg/tcpip/network/ipv6"
+	"github.com/sagernet/gvisor/pkg/tcpip/stack"
+	"github.com/sagernet/gvisor/pkg/tcpip/transport/tcp"
+	"github.com/sagernet/gvisor/pkg/tcpip/transport/udp"
 )
+
+const nicID tcpip.NICID = 1
 
 var (
-	mu      sync.Mutex
-	yggCore *core.Core
-	iprwc   *ipv6rwc.ReadWriteCloser
-	running atomic.Bool
-	address string
+	mu       sync.Mutex
+	yggCore  *core.Core
+	iprwc    *ipv6rwc.ReadWriteCloser
+	netStack *stack.Stack
+	ep       *channel.Endpoint
+	running  atomic.Bool
+	address  string
+	stopCh   chan struct{}
 )
 
-// Start launches the Yggdrasil node.
+// Start launches the Yggdrasil node with a gVisor userspace TCP/IP stack.
 func Start(peers string) error {
 	mu.Lock()
 	defer mu.Unlock()
@@ -35,13 +48,14 @@ func Start(peers string) error {
 		return nil
 	}
 
+	stopCh = make(chan struct{})
+
 	logger := golog.New(log.Writer(), "", 0)
 	logger.EnableLevel("error")
 	logger.EnableLevel("warn")
 	logger.EnableLevel("info")
 
 	cfg := config.GenerateConfig()
-
 	opts := []core.SetupOption{}
 	for _, peer := range strings.Split(peers, "\n") {
 		peer = strings.TrimSpace(peer)
@@ -53,14 +67,46 @@ func Start(peers string) error {
 	var err error
 	yggCore, err = core.New(cfg.Certificate, logger, opts...)
 	if err != nil {
-		return fmt.Errorf("yggdrasil core: %w", err)
+		return fmt.Errorf("core: %w", err)
 	}
-
 	address = yggCore.Address().String()
 	iprwc = ipv6rwc.NewReadWriteCloser(yggCore)
-	running.Store(true)
 
-	log.Printf("yggmobile: started addr=%s", address)
+	// Build gVisor stack
+	netStack = stack.New(stack.Options{
+		NetworkProtocols:   []stack.NetworkProtocolFactory{ipv6.NewProtocol},
+		TransportProtocols: []stack.TransportProtocolFactory{tcp.NewProtocol, udp.NewProtocol},
+	})
+
+	mtu := uint32(iprwc.MaxMTU())
+	ep = channel.New(512, mtu, "")
+
+	if tcpErr := netStack.CreateNIC(nicID, ep); tcpErr != nil {
+		yggCore.Stop()
+		return fmt.Errorf("create NIC: %v", tcpErr)
+	}
+
+	yggAddr := tcpip.AddrFromSlice(yggCore.Address().To16())
+	protoAddr := tcpip.ProtocolAddress{
+		Protocol:          ipv6.ProtocolNumber,
+		AddressWithPrefix: yggAddr.WithPrefix(),
+	}
+	if tcpErr := netStack.AddProtocolAddress(nicID, protoAddr, stack.AddressProperties{}); tcpErr != nil {
+		yggCore.Stop()
+		return fmt.Errorf("add addr: %v", tcpErr)
+	}
+
+	netStack.AddRoute(tcpip.Route{
+		Destination: header.IPv6EmptySubnet,
+		NIC:         nicID,
+	})
+
+	// Start packet pumps
+	go pumpYggToStack(stopCh)
+	go pumpStackToYgg(stopCh)
+
+	running.Store(true)
+	log.Printf("yggmobile: started addr=%s mtu=%d", address, mtu)
 	return nil
 }
 
@@ -71,47 +117,91 @@ func Stop() {
 		return
 	}
 	running.Store(false)
+	close(stopCh)
+	if netStack != nil { netStack.Close(); netStack = nil }
 	if iprwc != nil { iprwc.Close(); iprwc = nil }
 	if yggCore != nil { yggCore.Stop(); yggCore = nil }
 	address = ""
 }
 
-// DialTCP connects to a Yggdrasil IPv6 address via the overlay network.
-// Returns a YggConn object that can be used for reading/writing.
+// DialTCP connects to a Yggdrasil IPv6 address via the userspace stack.
 func DialTCP(host string, port int) (*YggConn, error) {
-	if !running.Load() {
-		return nil, fmt.Errorf("yggdrasil not running")
+	if !running.Load() || netStack == nil {
+		return nil, fmt.Errorf("not running")
 	}
 
-	// Use core's Listen mechanism to get a connection through the overlay.
-	// We listen locally and connect via the Yggdrasil address.
-	target := fmt.Sprintf("[%s]:%d", host, port)
-
-	// Dial via Yggdrasil using the core's internal dialer
-	// which routes through the overlay network.
-	u, err := parseYggURL(host, port)
-	if err != nil {
-		return nil, err
+	ip := net.ParseIP(host)
+	if ip == nil {
+		addrs, err := net.LookupHost(host)
+		if err != nil || len(addrs) == 0 {
+			return nil, fmt.Errorf("resolve %s: %w", host, err)
+		}
+		ip = net.ParseIP(addrs[0])
 	}
 
-	// Use core.CallPeer for outbound connection through overlay
-	_ = u
+	ip6 := ip.To16()
+	if ip6 == nil {
+		return nil, fmt.Errorf("not IPv6: %s", host)
+	}
 
-	// Alternative: use net.Dial with a custom resolver that uses Yggdrasil routing.
-	// Since Yggdrasil nodes have real IPv6 addresses (200::/7), if the OS has
-	// a route to Yggdrasil (via TUN or via the overlay IP stack), net.Dial works.
-	// Without TUN, we need to use the overlay TCP mechanism directly.
+	addr := tcpip.AddrFromSlice(ip6)
+	fullAddr := tcpip.FullAddress{
+		NIC:  nicID,
+		Addr: addr,
+		Port: uint16(port),
+	}
 
-	// For now, try direct connection - works if OS routes 200::/7 via Yggdrasil TUN
-	dialer := &net.Dialer{}
-	conn, err := dialer.DialContext(context.Background(), "tcp6", target)
+	conn, err := gonet.DialContextTCP(context.Background(), netStack, fullAddr, ipv6.ProtocolNumber)
 	if err != nil {
-		return nil, fmt.Errorf("dial %s: %w", target, err)
+		return nil, fmt.Errorf("dial %s:%d: %w", host, port, err)
 	}
 	return &YggConn{conn: conn}, nil
 }
 
-// YggConn wraps a net.Conn for use from Java via gomobile.
+func GetAddress() string { return address }
+func IsRunning() bool    { return running.Load() }
+
+// ── Packet pumps ────────────────────────────────────────────────────────────
+
+func pumpYggToStack(stop <-chan struct{}) {
+	buf := make([]byte, 65535)
+	for {
+		select {
+		case <-stop:
+			return
+		default:
+		}
+		n, err := iprwc.Read(buf)
+		if err != nil {
+			return
+		}
+		pkt := stack.NewPacketBuffer(stack.PacketBufferOptions{
+			Payload: buffer.MakeWithData(buf[:n]),
+		})
+		ep.InjectInbound(ipv6.ProtocolNumber, pkt)
+		pkt.DecRef()
+	}
+}
+
+func pumpStackToYgg(stop <-chan struct{}) {
+	for {
+		select {
+		case <-stop:
+			return
+		default:
+		}
+		pkt := ep.ReadContext(nil)
+		if pkt == nil {
+			return
+		}
+		data := pkt.ToView().AsSlice()
+		_, _ = iprwc.Write(data)
+		pkt.DecRef()
+	}
+}
+
+// ── YggConn ──────────────────────────────────────────────────────────────────
+
 type YggConn struct {
 	conn net.Conn
 }
@@ -119,32 +209,3 @@ type YggConn struct {
 func (c *YggConn) Read(buf []byte) (int, error)  { return c.conn.Read(buf) }
 func (c *YggConn) Write(buf []byte) (int, error) { return c.conn.Write(buf) }
 func (c *YggConn) Close() error                  { return c.conn.Close() }
-
-func GetAddress() string { return address }
-func IsRunning() bool    { return running.Load() }
-
-// ReadPacket reads one IPv6 packet from Yggdrasil.
-func ReadPacket() ([]byte, error) {
-	if iprwc == nil {
-		return nil, fmt.Errorf("not started")
-	}
-	buf := make([]byte, 65535)
-	n, err := iprwc.Read(buf)
-	if err != nil {
-		return nil, err
-	}
-	return buf[:n], nil
-}
-
-// WritePacket sends one IPv6 packet into Yggdrasil.
-func WritePacket(data []byte) error {
-	if iprwc == nil {
-		return fmt.Errorf("not started")
-	}
-	_, err := iprwc.Write(data)
-	return err
-}
-
-func parseYggURL(host string, port int) (string, error) {
-	return fmt.Sprintf("tcp://[%s]:%d", host, port), nil
-}

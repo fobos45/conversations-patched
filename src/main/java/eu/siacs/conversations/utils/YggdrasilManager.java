@@ -66,6 +66,8 @@ public class YggdrasilManager {
             String peers = String.join("\n", DEFAULT_PEERS);
             Log.i(TAG, "Starting Yggdrasil node...");
             yggmobile.Yggmobile.start(peers);
+            // Give gVisor stack a moment to initialize
+            Thread.sleep(500);
             String addr = yggmobile.Yggmobile.getAddress();
             Log.i(TAG, "Yggdrasil address: " + addr);
             lastError = "";
