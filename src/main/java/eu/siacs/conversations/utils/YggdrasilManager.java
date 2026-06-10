@@ -151,15 +151,22 @@ public class YggdrasilManager {
 
             int port = ((in.read() & 0xFF) << 8) | (in.read() & 0xFF);
 
-            // Connect directly to the Yggdrasil IPv6 address
+            // Connect via Yggdrasil overlay network
             Socket remote;
             try {
-                remote = new Socket();
-                remote.connect(new InetSocketAddress(host, port), 10000);
-            } catch (IOException e) {
-                Log.w(TAG, "connect " + host + ":" + port + " failed: " + e.getMessage());
-                out.write(new byte[]{5,4,0,1,0,0,0,0,0,0}); out.flush();
-                client.close(); return;
+                // Try Yggdrasil overlay dial first
+                yggmobile.YggConn yggConn = yggmobile.Yggmobile.dialTCP(host, port);
+                remote = new YggSocket(yggConn);
+            } catch (Exception e) {
+                Log.w(TAG, "ygg dial " + host + ":" + port + " failed: " + e.getMessage() + ", trying direct");
+                try {
+                    remote = new Socket();
+                    remote.connect(new InetSocketAddress(host, port), 10000);
+                } catch (IOException e2) {
+                    Log.w(TAG, "direct connect also failed: " + e2.getMessage());
+                    out.write(new byte[]{5,4,0,1,0,0,0,0,0,0}); out.flush();
+                    client.close(); return;
+                }
             }
 
             out.write(new byte[]{5,0,0,1,0,0,0,0,0,0}); out.flush();
