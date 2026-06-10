@@ -74,7 +74,7 @@ public class YggdrasilManager {
             executor = Executors.newCachedThreadPool();
             serverSocket = new ServerSocket();
             serverSocket.setReuseAddress(true);
-            InetAddress loopback = InetAddress.getLoopbackAddress();
+            InetAddress loopback = InetAddress.getByName("127.0.0.1");
             Log.i(TAG, "Binding SOCKS5 on " + loopback + ":" + SOCKS_PORT);
             serverSocket.bind(new InetSocketAddress(loopback, SOCKS_PORT));
             Log.i(TAG, "SOCKS5 bound: " + serverSocket.getLocalSocketAddress()
