@@ -114,6 +114,7 @@ public class YggdrasilManager {
      * The Yggdrasil node handles routing at the overlay level.
      */
     private void handleClient(Socket client) {
+        Log.i(TAG, "handleClient: new connection from " + client.getRemoteSocketAddress());
         try {
             client.setSoTimeout(15000);
             InputStream in = client.getInputStream();
@@ -121,7 +122,8 @@ public class YggdrasilManager {
 
             // Greeting
             int ver = in.read();
-            if (ver != 5) { client.close(); return; }
+            Log.i(TAG, "handleClient: SOCKS version=" + ver);
+            if (ver != 5) { Log.w(TAG, "handleClient: not SOCKS5, closing"); client.close(); return; }
             int nMethods = in.read();
             byte[] methods = new byte[nMethods];
             readFully(in, methods);
@@ -152,16 +154,18 @@ public class YggdrasilManager {
             int port = ((in.read() & 0xFF) << 8) | (in.read() & 0xFF);
 
             // Connect via Yggdrasil overlay network
+            Log.i(TAG, "handleClient: connecting to " + host + ":" + port);
             Socket remote;
             try {
-                // Try Yggdrasil overlay dial first
                 yggmobile.YggConn yggConn = yggmobile.Yggmobile.dialTCP(host, port);
                 remote = new YggSocket(yggConn);
+                Log.i(TAG, "handleClient: connected via Yggdrasil to " + host + ":" + port);
             } catch (Exception e) {
-                Log.w(TAG, "ygg dial " + host + ":" + port + " failed: " + e.getMessage() + ", trying direct");
+                Log.w(TAG, "ygg dial " + host + ":" + port + " failed: " + e.getClass().getSimpleName() + ": " + e.getMessage() + ", trying direct");
                 try {
                     remote = new Socket();
                     remote.connect(new InetSocketAddress(host, port), 10000);
+                    Log.i(TAG, "handleClient: connected directly to " + host + ":" + port);
                 } catch (IOException e2) {
                     Log.w(TAG, "direct connect also failed: " + e2.getMessage());
                     out.write(new byte[]{5,4,0,1,0,0,0,0,0,0}); out.flush();
