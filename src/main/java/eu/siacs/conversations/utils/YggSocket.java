@@ -77,10 +77,10 @@ public class YggSocket extends Socket {
             try {
                 // gomobile: Read([]byte) (int, error) -> read(byte[]) throws Exception
                 byte[] tmp = new byte[len];
-                int n = conn.read(tmp);
+                long n = conn.read(tmp);
                 if (n <= 0) return -1;
-                System.arraycopy(tmp, 0, buf, off, n);
-                return n;
+                System.arraycopy(tmp, 0, buf, off, (int) n);
+                return (int) n;
             } catch (Exception e) {
                 throw new IOException(e);
             }
