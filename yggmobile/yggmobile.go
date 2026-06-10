@@ -1,21 +1,13 @@
 // Package yggmobile provides a gomobile-compatible API for an embedded
-// Yggdrasil node with a SOCKS5 proxy backed by a gVisor userspace TCP/IP stack.
-//
-// Exported (gomobile-visible) API:
-//
-//	Start(peersNewlineSeparated string, socksPort int) error
-//	Stop()
-//	GetAddress() string
-//	IsRunning() bool
+// Yggdrasil node with a SOCKS5 proxy.
 package yggmobile
 
 import (
-	"encoding/hex"
+	"context"
 	"fmt"
 	"io"
 	"log"
 	"net"
-	"net/url"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -36,8 +28,6 @@ import (
 	"github.com/sagernet/gvisor/pkg/tcpip/transport/udp"
 )
 
-// ── singleton ────────────────────────────────────────────────────────────────
-
 var (
 	mu       sync.Mutex
 	yggCore  *core.Core
@@ -52,29 +42,29 @@ var (
 
 const nicID tcpip.NICID = 1
 
-// ── Public API ────────────────────────────────────────────────────────────────
-
-// Start launches the Yggdrasil node and a SOCKS5 proxy on 127.0.0.1:socksPort.
-// peers is a newline-separated list of peer URIs.
-func Start(peers string, socksPort int) error {
+func Start(peers string, socksPort int) (retErr error) {
 	mu.Lock()
 	defer mu.Unlock()
 	if running.Load() {
 		return nil
 	}
 
+	// Recover from any panic (e.g. SELinux blocking somaxconn)
+	defer func() {
+		if r := recover(); r != nil {
+			retErr = fmt.Errorf("panic: %v", r)
+		}
+	}()
+
 	stopCh = make(chan struct{})
 
-	// ── 1. Logger ─────────────────────────────────────────────────────────────
 	logger := golog.New(log.Writer(), "", 0)
 	logger.EnableLevel("error")
 	logger.EnableLevel("warn")
 	logger.EnableLevel("info")
 
-	// ── 1b. Generate config to get TLS certificate ────────────────────────────
 	cfg := config.GenerateConfig()
 
-	// ── 2. Build core options ─────────────────────────────────────────────────
 	opts := []core.SetupOption{}
 	for _, peer := range strings.Split(peers, "\n") {
 		peer = strings.TrimSpace(peer)
@@ -83,33 +73,28 @@ func Start(peers string, socksPort int) error {
 		}
 	}
 
-	// ── 3. Start core ─────────────────────────────────────────────────────────
 	var err error
 	yggCore, err = core.New(cfg.Certificate, logger, opts...)
 	if err != nil {
 		return fmt.Errorf("yggdrasil core: %w", err)
 	}
 	address = yggCore.Address().String()
-	log.Printf("yggmobile: Yggdrasil address: %s", address)
-	log.Printf("yggmobile: Public key: %s", hex.EncodeToString(yggCore.PublicKey()))
+	log.Printf("yggmobile: address=%s", address)
 
-	// ── 4. IP read/write closer ───────────────────────────────────────────────
 	iprwc = ipv6rwc.NewReadWriteCloser(yggCore)
 
-	// ── 5. gVisor network stack ───────────────────────────────────────────────
+	// gVisor network stack
 	netStack = stack.New(stack.Options{
 		NetworkProtocols:   []stack.NetworkProtocolFactory{ipv6.NewProtocol},
 		TransportProtocols: []stack.TransportProtocolFactory{tcp.NewProtocol, udp.NewProtocol},
 	})
 
-	// Channel endpoint: MTU from iprwc
 	mtu := uint32(iprwc.MaxMTU())
 	ep = channel.New(512, mtu, "")
 	if tcpErr := netStack.CreateNIC(nicID, ep); tcpErr != nil {
 		return fmt.Errorf("create NIC: %v", tcpErr)
 	}
 
-	// Assign our Yggdrasil IPv6 address to the NIC
 	yggAddr := tcpip.AddrFromSlice(yggCore.Address().To16())
 	protoAddr := tcpip.ProtocolAddress{
 		Protocol:          ipv6.ProtocolNumber,
@@ -118,19 +103,17 @@ func Start(peers string, socksPort int) error {
 	if tcpErr := netStack.AddProtocolAddress(nicID, protoAddr, stack.AddressProperties{}); tcpErr != nil {
 		return fmt.Errorf("add address: %v", tcpErr)
 	}
-
-	// Default IPv6 route
 	netStack.AddRoute(tcpip.Route{
 		Destination: header.IPv6EmptySubnet,
 		NIC:         nicID,
 	})
 
-	// ── 6. Pump goroutines: Yggdrasil ↔ gVisor ───────────────────────────────
 	go pumpYggToStack(iprwc, ep, stopCh)
 	go pumpStackToYgg(ep, iprwc, stopCh)
 
-	// ── 7. SOCKS5 proxy ───────────────────────────────────────────────────────
-	ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", socksPort))
+	// Use ListenConfig with explicit backlog to avoid reading somaxconn
+	lc := net.ListenConfig{}
+	ln, err := lc.Listen(context.Background(), "tcp", fmt.Sprintf("127.0.0.1:%d", socksPort))
 	if err != nil {
 		yggCore.Stop()
 		return fmt.Errorf("socks5 listen: %w", err)
@@ -139,11 +122,10 @@ func Start(peers string, socksPort int) error {
 	running.Store(true)
 
 	go serveSocks5(ln, netStack)
-	log.Printf("yggmobile: SOCKS5 proxy on 127.0.0.1:%d", socksPort)
+	log.Printf("yggmobile: SOCKS5 on 127.0.0.1:%d", socksPort)
 	return nil
 }
 
-// Stop shuts everything down.
 func Stop() {
 	mu.Lock()
 	defer mu.Unlock()
@@ -152,34 +134,16 @@ func Stop() {
 	}
 	running.Store(false)
 	close(stopCh)
-	if socksLn != nil {
-		socksLn.Close()
-		socksLn = nil
-	}
-	if netStack != nil {
-		netStack.Close()
-		netStack = nil
-	}
-	if iprwc != nil {
-		iprwc.Close()
-		iprwc = nil
-	}
-	if yggCore != nil {
-		yggCore.Stop()
-		yggCore = nil
-	}
+	if socksLn != nil { socksLn.Close(); socksLn = nil }
+	if netStack != nil { netStack.Close(); netStack = nil }
+	if iprwc != nil { iprwc.Close(); iprwc = nil }
+	if yggCore != nil { yggCore.Stop(); yggCore = nil }
 	address = ""
 }
 
-// GetAddress returns the node's Yggdrasil IPv6 address.
 func GetAddress() string { return address }
+func IsRunning() bool    { return running.Load() }
 
-// IsRunning returns true if the node is active.
-func IsRunning() bool { return running.Load() }
-
-// ── Packet pumps ──────────────────────────────────────────────────────────────
-
-// pumpYggToStack reads IPv6 packets from Yggdrasil and injects into gVisor.
 func pumpYggToStack(r io.Reader, ep *channel.Endpoint, stop <-chan struct{}) {
 	buf := make([]byte, 65535)
 	for {
@@ -200,7 +164,6 @@ func pumpYggToStack(r io.Reader, ep *channel.Endpoint, stop <-chan struct{}) {
 	}
 }
 
-// pumpStackToYgg reads packets from gVisor and sends to Yggdrasil.
 func pumpStackToYgg(ep *channel.Endpoint, w io.Writer, stop <-chan struct{}) {
 	for {
 		select {
@@ -218,8 +181,6 @@ func pumpStackToYgg(ep *channel.Endpoint, w io.Writer, stop <-chan struct{}) {
 	}
 }
 
-// ── SOCKS5 server ─────────────────────────────────────────────────────────────
-
 func serveSocks5(ln net.Listener, s *stack.Stack) {
 	for {
 		conn, err := ln.Accept()
@@ -233,7 +194,6 @@ func serveSocks5(ln net.Listener, s *stack.Stack) {
 func handleSocks5(client net.Conn, s *stack.Stack) {
 	defer client.Close()
 
-	// Greeting
 	hdr := make([]byte, 2)
 	if _, err := io.ReadFull(client, hdr); err != nil || hdr[0] != 5 {
 		return
@@ -242,9 +202,8 @@ func handleSocks5(client net.Conn, s *stack.Stack) {
 	if _, err := io.ReadFull(client, methods); err != nil {
 		return
 	}
-	client.Write([]byte{5, 0}) // no auth
+	client.Write([]byte{5, 0})
 
-	// Request
 	req := make([]byte, 4)
 	if _, err := io.ReadFull(client, req); err != nil || req[1] != 1 {
 		client.Write([]byte{5, 7, 0, 1, 0, 0, 0, 0, 0, 0})
@@ -253,15 +212,15 @@ func handleSocks5(client net.Conn, s *stack.Stack) {
 
 	var host string
 	switch req[3] {
-	case 1: // IPv4
+	case 1:
 		b := make([]byte, 4)
 		io.ReadFull(client, b)
 		host = net.IP(b).String()
-	case 4: // IPv6
+	case 4:
 		b := make([]byte, 16)
 		io.ReadFull(client, b)
 		host = net.IP(b).String()
-	case 3: // domain
+	case 3:
 		l := make([]byte, 1)
 		io.ReadFull(client, l)
 		b := make([]byte, l[0])
@@ -275,7 +234,6 @@ func handleSocks5(client net.Conn, s *stack.Stack) {
 	io.ReadFull(client, pb)
 	port := uint16(pb[0])<<8 | uint16(pb[1])
 
-	// Resolve host to IPv6 (Yggdrasil addresses are IPv6)
 	addrs, err := net.LookupHost(host)
 	if err != nil || len(addrs) == 0 {
 		client.Write([]byte{5, 4, 0, 1, 0, 0, 0, 0, 0, 0})
@@ -287,14 +245,9 @@ func handleSocks5(client net.Conn, s *stack.Stack) {
 		return
 	}
 
-	// Dial via gVisor stack
 	addr := tcpip.AddrFromSlice(ip)
-	fullAddr := tcpip.FullAddress{
-		NIC:  nicID,
-		Addr: addr,
-		Port: port,
-	}
-	remote, err := gonet.DialContextTCP(nil, s, fullAddr, ipv6.ProtocolNumber)
+	fullAddr := tcpip.FullAddress{NIC: nicID, Addr: addr, Port: port}
+	remote, err := gonet.DialContextTCP(context.Background(), s, fullAddr, ipv6.ProtocolNumber)
 	if err != nil {
 		log.Printf("yggmobile: dial %s:%d: %v", host, port, err)
 		client.Write([]byte{5, 4, 0, 1, 0, 0, 0, 0, 0, 0})
@@ -308,10 +261,4 @@ func handleSocks5(client net.Conn, s *stack.Stack) {
 	go func() { io.Copy(remote, client); done <- struct{}{} }()
 	go func() { io.Copy(client, remote); done <- struct{}{} }()
 	<-done
-}
-
-// resolveURL is a helper used in init to validate peer URIs at compile time.
-func resolveURL(s string) *url.URL {
-	u, _ := url.Parse(s)
-	return u
 }
