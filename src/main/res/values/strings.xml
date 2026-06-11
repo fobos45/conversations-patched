@@ -503,7 +503,7 @@
     <string name="download_failed_could_not_write_file">Download failed: Could not write file</string>
     <string name="download_failed_invalid_file">Download failed: Invalid file</string>
     <string name="account_status_tor_unavailable">Tor network unavailable</string>
-    <string name="account_status_yggdrasil_unavailable">Сеть Yggdrasil недоступна</string>
+    <string name="account_status_yggdrasil_unavailable">Yggdrasil network unavailable</string>
     <string name="account_status_bind_failure">Bind failure</string>
     <string name="account_status_host_unknown">Not responsible for domain</string>
     <string name="server_info_broken">Broken</string>
@@ -535,7 +535,6 @@
     <string name="pref_use_yggdrasil_summary">Туннелировать XMPP через оверлейную сеть Yggdrasil. Слот VPN не требуется</string>
     <string name="pref_yggdrasil_peers">Пиры Yggdrasil</string>
     <string name="pref_yggdrasil_peers_summary">Управление списком пиров Yggdrasil</string>
-    <string name="account_status_yggdrasil_unavailable">Сеть Yggdrasil недоступна</string>
     <string name="account_settings_hostname">Hostname</string>
     <string name="account_settings_port">Port</string>
     <string name="hostname_or_onion">Server- or .onion-address</string>
