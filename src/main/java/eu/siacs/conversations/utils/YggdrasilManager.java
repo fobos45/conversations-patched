@@ -2,6 +2,9 @@ package eu.siacs.conversations.utils;
 
 import android.content.Context;
 import android.util.Log;
+import eu.siacs.conversations.ui.YggdrasilPeersActivity;
+import java.util.HashSet;
+import java.util.Set;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -63,7 +66,9 @@ public class YggdrasilManager {
     private synchronized void startInternal() {
         if (running.get()) return;
         try {
-            String peers = String.join("\n", DEFAULT_PEERS);
+            List<String> peerList = YggdrasilPeersActivity.getEnabledPeers(appContext);
+            if (peerList.isEmpty()) peerList = DEFAULT_PEERS;
+            String peers = String.join("\n", peerList);
             Log.i(TAG, "Starting Yggdrasil node...");
             yggmobile.Yggmobile.start(peers);
             // Give gVisor stack a moment to initialize
@@ -77,14 +82,10 @@ public class YggdrasilManager {
             serverSocket = new ServerSocket();
             serverSocket.setReuseAddress(true);
             InetAddress loopback = InetAddress.getByName("127.0.0.1");
-            Log.i(TAG, "Binding SOCKS5 on " + loopback + ":" + SOCKS_PORT);
             serverSocket.bind(new InetSocketAddress(loopback, SOCKS_PORT));
-            Log.i(TAG, "SOCKS5 bound: " + serverSocket.getLocalSocketAddress()
-                + " closed=" + serverSocket.isClosed());
             running.set(true);
             Log.i(TAG, "SOCKS5 proxy on 127.0.0.1:" + SOCKS_PORT);
             executor.submit(this::acceptLoop);
-            Log.i(TAG, "acceptLoop submitted to executor");
 
         } catch (Throwable e) {
             StringBuilder sb = new StringBuilder();
@@ -101,17 +102,14 @@ public class YggdrasilManager {
     }
 
     private void acceptLoop() {
-        Log.i(TAG, "acceptLoop: started, waiting for connections on port " + SOCKS_PORT);
         while (running.get()) {
             try {
                 Socket client = serverSocket.accept();
-                Log.i(TAG, "acceptLoop: accepted connection from " + client.getRemoteSocketAddress());
                 executor.submit(() -> handleClient(client));
             } catch (IOException e) {
-                if (running.get()) Log.w(TAG, "acceptLoop error: " + e.getClass().getSimpleName() + ": " + e.getMessage());
+                if (running.get()) Log.w(TAG, "accept error: " + e.getMessage());
             }
         }
-        Log.i(TAG, "acceptLoop: stopped");
     }
 
     /**
@@ -123,7 +121,6 @@ public class YggdrasilManager {
      * The Yggdrasil node handles routing at the overlay level.
      */
     private void handleClient(Socket client) {
-        Log.i(TAG, "handleClient: new connection from " + client.getRemoteSocketAddress());
         try {
             client.setSoTimeout(15000);
             InputStream in = client.getInputStream();
@@ -131,8 +128,7 @@ public class YggdrasilManager {
 
             // Greeting
             int ver = in.read();
-            Log.i(TAG, "handleClient: SOCKS version=" + ver);
-            if (ver != 5) { Log.w(TAG, "handleClient: not SOCKS5, closing"); client.close(); return; }
+            if (ver != 5) { client.close(); return; }
             int nMethods = in.read();
             byte[] methods = new byte[nMethods];
             readFully(in, methods);
@@ -163,19 +159,16 @@ public class YggdrasilManager {
             int port = ((in.read() & 0xFF) << 8) | (in.read() & 0xFF);
 
             // Connect via Yggdrasil overlay network
-            Log.i(TAG, "handleClient: connecting to " + host + ":" + port);
             Socket remote;
             try {
                 yggmobile.YggConn yggConn = yggmobile.Yggmobile.dialTCP(host, port);
                 remote = new YggSocket(yggConn);
-                Log.i(TAG, "handleClient: connected via Yggdrasil to " + host + ":" + port);
             } catch (Exception e) {
                 Log.w(TAG, "ygg dial " + host + ":" + port + " failed: " + e.getClass().getSimpleName() + ": " + e.getMessage() + ", trying direct");
                 try {
                     remote = new Socket();
                     remote.connect(new InetSocketAddress(host, port), 10000);
-                    Log.i(TAG, "handleClient: connected directly to " + host + ":" + port);
-                } catch (IOException e2) {
+                    } catch (IOException e2) {
                     Log.w(TAG, "direct connect also failed: " + e2.getMessage());
                     out.write(new byte[]{5,4,0,1,0,0,0,0,0,0}); out.flush();
                     client.close(); return;
@@ -197,6 +190,33 @@ public class YggdrasilManager {
         } finally {
             try { client.close(); } catch (IOException ignored) {}
         }
+    }
+
+    public Set<String> getConnectedPeers() {
+        if (!isRunning()) return new HashSet<>();
+        try {
+            String json = yggmobile.Yggmobile.getPeersJSON();
+            Set<String> connected = new HashSet<>();
+            // Simple JSON parsing: find "uri":"..." where "up":true
+            // Format: [{"uri":"tcp://...","up":true},...]
+            org.json.JSONArray arr = new org.json.JSONArray(json);
+            for (int i = 0; i < arr.length(); i++) {
+                org.json.JSONObject obj = arr.getJSONObject(i);
+                if (obj.optBoolean("up", false)) {
+                    connected.add(obj.getString("uri"));
+                }
+            }
+            return connected;
+        } catch (Exception e) {
+            return new HashSet<>();
+        }
+    }
+
+    public void updatePeers(Context context) {
+        if (!isRunning()) return;
+        // Restart with new peer list
+        stop();
+        start(context);
     }
 
     public synchronized void stop() {

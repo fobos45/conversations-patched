@@ -4,6 +4,7 @@ package yggmobile
 import (
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -439,3 +440,24 @@ type YggConn struct {
 func (c *YggConn) Read(buf []byte) (int, error)  { return c.conn.Read(buf) }
 func (c *YggConn) Write(buf []byte) (int, error) { return c.conn.Write(buf) }
 func (c *YggConn) Close() error                  { return c.conn.Close() }
+
+// GetPeersJSON returns JSON array of peers with their online status.
+func GetPeersJSON() string {
+	if !running.Load() || yggCore == nil {
+		return "[]"
+	}
+	type peerInfo struct {
+		URI string `json:"uri"`
+		Up  bool   `json:"up"`
+	}
+	peers := yggCore.GetPeers()
+	result := make([]peerInfo, 0, len(peers))
+	for _, p := range peers {
+		result = append(result, peerInfo{URI: p.URI, Up: p.Up})
+	}
+	data, err := json.Marshal(result)
+	if err != nil {
+		return "[]"
+	}
+	return string(data)
+}

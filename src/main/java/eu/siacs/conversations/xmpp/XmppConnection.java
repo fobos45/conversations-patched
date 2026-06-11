@@ -343,15 +343,20 @@ public class XmppConnection implements Runnable {
             final boolean useTorSetting = appSettings.isUseTor();
             final boolean extended = appSettings.isExtendedConnectionOptions();
             final boolean useTor = useTorSetting || account.isOnion();
-            final boolean useYggdrasil = appSettings.isUseYggdrasil();
+            final boolean useYggdrasil = appSettings.isUseYggdrasil() || account.isYggdrasil();
             // TODO collapse Tor usage into normal connection code path
             if (useYggdrasil) {
                 // Ensure Yggdrasil node is running
                 final YggdrasilManager yggMgr = YggdrasilManager.getInstance();
                 if (!yggMgr.isRunning()) {
                     yggMgr.start(mXmppConnectionService);
-                    // Give node a moment to start
-                    try { Thread.sleep(1000); } catch (InterruptedException ignored) {}
+                }
+                // Wait up to 10 seconds for node to start
+                for (int i = 0; i < 20 && !yggMgr.isRunning(); i++) {
+                    try { Thread.sleep(500); } catch (InterruptedException ignored) {}
+                }
+                if (!yggMgr.isRunning()) {
+                    Log.w(Config.LOGTAG, account.getJid().asBareJid() + ": Yggdrasil not ready after 10s");
                 }
                 final var seeOtherHost = this.seeOtherHostResolverResult;
                 final var hostname = account.getHostname().trim();

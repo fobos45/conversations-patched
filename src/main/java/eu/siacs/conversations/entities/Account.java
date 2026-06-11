@@ -312,6 +312,16 @@ public class Account extends AbstractEntity implements AvatarService.Avatar {
         return server != null && server.endsWith(".onion");
     }
 
+    public boolean isYggdrasil() {
+        final String server = getServer();
+        if (server == null) return false;
+        // Yggdrasil addresses start with 200: or 202: (or via hostname override)
+        final String h = getHostname().trim();
+        final String target = h.isEmpty() ? server : h;
+        return target.startsWith("200:") || target.startsWith("202:")
+            || target.startsWith("201:") || target.startsWith("203:");
+    }
+
     public boolean isDirectToOnion() {
         final var hostname = Strings.nullToEmpty(this.hostname).trim();
         return isOnion() && (hostname.isEmpty() || hostname.endsWith(".onion"));
