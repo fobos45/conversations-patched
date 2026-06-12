@@ -143,6 +143,7 @@ public class YggdrasilPeersActivity extends AppCompatActivity {
         fabParams.setMargins(margin, margin, margin, margin);
         fab.setLayoutParams(fabParams);
         fab.setContentDescription(getString(R.string.ygg_add_peer));
+        fab.setImageResource(android.R.drawable.ic_input_add);
         fab.setOnClickListener(v -> showAddDialog(null, -1));
         root.addView(fab);
 

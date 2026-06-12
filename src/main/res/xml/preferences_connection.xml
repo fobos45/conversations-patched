@@ -16,12 +16,12 @@
             android:title="@string/pref_use_tor" />
         <SwitchPreferenceCompat
             android:defaultValue="@bool/use_yggdrasil"
-            android:icon="@drawable/ic_network_node_24dp"
+            android:icon="@drawable/ic_yggdrasil_leaf_24dp"
             android:key="use_yggdrasil"
             android:summary="@string/pref_use_yggdrasil_summary"
             android:title="@string/pref_use_yggdrasil" />
         <Preference
-            android:icon="@drawable/ic_network_node_24dp"
+            android:icon="@drawable/ic_yggdrasil_leaf_24dp"
             android:key="yggdrasil_peers"
             android:summary="@string/pref_yggdrasil_peers_summary"
             android:title="@string/pref_yggdrasil_peers" />
