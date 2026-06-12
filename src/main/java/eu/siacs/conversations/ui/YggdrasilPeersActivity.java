@@ -12,12 +12,14 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import java.util.ArrayList;
@@ -37,22 +39,20 @@ public class YggdrasilPeersActivity extends AppCompatActivity {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private Runnable statusUpdater;
 
-    // ── Persistence ──────────────────────────────────────────────────────────
+    // ── Persistence ───────────────────────────────────────────────────────────
 
-    /** Returns all saved peer URIs (ordered, no duplicates). */
     public static List<String> getAllPeers(Context ctx) {
         SharedPreferences prefs = ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         Set<String> saved = prefs.getStringSet(KEY_PEERS, new HashSet<>());
         return new ArrayList<>(saved);
     }
 
-    /** Saves the full peer list. */
     private static void savePeers(Context ctx, List<String> peers) {
         ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                 .edit().putStringSet(KEY_PEERS, new LinkedHashSet<>(peers)).apply();
     }
 
-    /** Returns all saved peers (used by YggdrasilManager). */
+    /** Called by YggdrasilManager — returns all user-saved peers. */
     public static List<String> getEnabledPeers(Context ctx) {
         return getAllPeers(ctx);
     }
@@ -63,24 +63,45 @@ public class YggdrasilPeersActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        RecyclerView recyclerView = new RecyclerView(this);
-        recyclerView.setLayoutManager(new LinearLayoutManager(this));
-        recyclerView.setPadding(0, 8, 0, 8);
-        setContentView(recyclerView);
+        float dp = getResources().getDisplayMetrics().density;
 
+        // Root: vertical LinearLayout with Toolbar + RecyclerView
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setLayoutParams(new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT));
+
+        // Toolbar
+        Toolbar toolbar = new Toolbar(this);
+        toolbar.setLayoutParams(new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                (int)(56 * dp)));
+        toolbar.setTitle(R.string.pref_yggdrasil_peers);
+        root.addView(toolbar);
+        setSupportActionBar(toolbar);
         if (getSupportActionBar() != null) {
-            getSupportActionBar().setTitle(R.string.pref_yggdrasil_peers);
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
         }
 
+        // RecyclerView
+        RecyclerView recyclerView = new RecyclerView(this);
+        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+        recyclerView.setPadding(0, (int)(4 * dp), 0, (int)(4 * dp));
+        recyclerView.setClipToPadding(false);
+        LinearLayout.LayoutParams rvParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f);
+        recyclerView.setLayoutParams(rvParams);
+        root.addView(recyclerView);
+
+        setContentView(root);
+
+        // Build adapter
         List<PeerItem> items = new ArrayList<>();
         for (String uri : getAllPeers(this)) {
             items.add(new PeerItem(uri));
         }
-
-        adapter = new PeerAdapter(items, this,
-                /* onEdit   */ this::showEditDialog,
-                /* onDelete */ this::deletePeer);
+        adapter = new PeerAdapter(items, this, this::showEditDialog, this::deletePeer);
         recyclerView.setAdapter(adapter);
 
         statusUpdater = new Runnable() {
@@ -92,13 +113,17 @@ public class YggdrasilPeersActivity extends AppCompatActivity {
     }
 
     @Override public boolean onCreateOptionsMenu(Menu menu) {
-        menu.add(0, 1, 0, "+")
-                .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
+        MenuItem add = menu.add(0, android.R.id.add, 0, R.string.add_peer);
+        add.setIcon(android.R.drawable.ic_menu_add);
+        add.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
         return true;
     }
 
     @Override public boolean onOptionsItemSelected(MenuItem item) {
-        if (item.getItemId() == 1) { showAddDialog(); return true; }
+        if (item.getItemId() == android.R.id.add) {
+            showAddDialog();
+            return true;
+        }
         return super.onOptionsItemSelected(item);
     }
 
@@ -124,16 +149,11 @@ public class YggdrasilPeersActivity extends AppCompatActivity {
 
     // ── CRUD dialogs ──────────────────────────────────────────────────────────
 
-    private void showAddDialog() {
-        showPeerDialog(null, -1);
-    }
-
-    private void showEditDialog(PeerItem item, int position) {
-        showPeerDialog(item, position);
-    }
+    private void showAddDialog() { showPeerDialog(null, -1); }
+    private void showEditDialog(PeerItem item, int pos) { showPeerDialog(item, pos); }
 
     private void showPeerDialog(PeerItem existing, int position) {
-        int dp16 = (int) (16 * getResources().getDisplayMetrics().density);
+        int dp16 = (int)(16 * getResources().getDisplayMetrics().density);
 
         EditText input = new EditText(this);
         input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
@@ -145,7 +165,9 @@ public class YggdrasilPeersActivity extends AppCompatActivity {
 
         LinearLayout container = new LinearLayout(this);
         container.setPadding(dp16 * 2, dp16, dp16 * 2, 0);
-        container.addView(input);
+        container.addView(input, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
 
         String title  = existing == null ? getString(R.string.add_peer)    : getString(R.string.edit_peer);
         String button = existing == null ? getString(R.string.add_peer_btn): getString(R.string.save_peer_btn);
@@ -159,11 +181,8 @@ public class YggdrasilPeersActivity extends AppCompatActivity {
                         Toast.makeText(this, R.string.peer_empty_error, Toast.LENGTH_SHORT).show();
                         return;
                     }
-                    if (existing == null) {
-                        addPeer(uri);
-                    } else {
-                        updatePeer(position, uri);
-                    }
+                    if (existing == null) addPeer(uri);
+                    else updatePeer(position, uri);
                 })
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
@@ -185,8 +204,7 @@ public class YggdrasilPeersActivity extends AppCompatActivity {
         List<String> peers = getAllPeers(this);
         String oldUri = adapter.getItem(position).uri;
         int idx = peers.indexOf(oldUri);
-        if (idx >= 0) peers.set(idx, newUri);
-        else peers.add(newUri);
+        if (idx >= 0) peers.set(idx, newUri); else peers.add(newUri);
         savePeers(this, peers);
         adapter.updateItem(position, newUri);
         YggdrasilManager.getInstance().updatePeers(this);
@@ -244,21 +262,21 @@ public class YggdrasilPeersActivity extends AppCompatActivity {
             this.onDelete = onDelete;
         }
 
-        PeerItem getItem(int position) { return items.get(position); }
+        PeerItem getItem(int pos) { return items.get(pos); }
 
         void addItem(PeerItem item) {
             items.add(item);
             notifyItemInserted(items.size() - 1);
         }
 
-        void removeItem(int position) {
-            items.remove(position);
-            notifyItemRemoved(position);
+        void removeItem(int pos) {
+            items.remove(pos);
+            notifyItemRemoved(pos);
         }
 
-        void updateItem(int position, String newUri) {
-            items.get(position).uri = newUri;
-            notifyItemChanged(position);
+        void updateItem(int pos, String newUri) {
+            items.get(pos).uri = newUri;
+            notifyItemChanged(pos);
         }
 
         void updateStatuses(Set<String> connected) {
@@ -271,7 +289,6 @@ public class YggdrasilPeersActivity extends AppCompatActivity {
             float density = ctx.getResources().getDisplayMetrics().density;
             int dp8  = (int)(8  * density);
             int dp16 = (int)(16 * density);
-            int dp48 = (int)(48 * density);
 
             LinearLayout row = new LinearLayout(ctx);
             row.setOrientation(LinearLayout.HORIZONTAL);
@@ -288,26 +305,25 @@ public class YggdrasilPeersActivity extends AppCompatActivity {
             dot.setLayoutParams(dotParams);
             row.addView(dot);
 
-            // Peer URI (fills remaining space)
+            // Peer name
             TextView name = new TextView(ctx);
-            LinearLayout.LayoutParams nameParams =
-                    new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-            name.setLayoutParams(nameParams);
+            name.setLayoutParams(new LinearLayout.LayoutParams(0,
+                    ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
             name.setTextSize(14);
             row.addView(name);
 
             // Edit button
             TextView btnEdit = new TextView(ctx);
             btnEdit.setText("✎");
-            btnEdit.setTextSize(18);
-            btnEdit.setPadding(dp8, 0, dp8, 0);
+            btnEdit.setTextSize(20);
+            btnEdit.setPadding(dp16, dp8, dp8, dp8);
             row.addView(btnEdit);
 
             // Delete button
             TextView btnDel = new TextView(ctx);
             btnDel.setText("✕");
-            btnDel.setTextSize(18);
-            btnDel.setPadding(dp8, 0, dp8, 0);
+            btnDel.setTextSize(20);
+            btnDel.setPadding(dp8, dp8, dp16, dp8);
             row.addView(btnDel);
 
             return new VH(row, dot, name, btnEdit, btnDel);
@@ -318,9 +334,10 @@ public class YggdrasilPeersActivity extends AppCompatActivity {
             PeerItem item = items.get(position);
             holder.name.setText(item.displayName());
             holder.dot.setBackgroundColor(item.online ? 0xFF00C853 : 0xFF757575);
-
-            holder.btnEdit.setOnClickListener(v -> onEdit.onEdit(item, holder.getAdapterPosition()));
-            holder.btnDel .setOnClickListener(v -> onDelete.onDelete(item, holder.getAdapterPosition()));
+            holder.btnEdit.setOnClickListener(v ->
+                    onEdit.onEdit(item, holder.getAdapterPosition()));
+            holder.btnDel.setOnClickListener(v ->
+                    onDelete.onDelete(item, holder.getAdapterPosition()));
         }
 
         @Override public int getItemCount() { return items.size(); }
@@ -328,13 +345,10 @@ public class YggdrasilPeersActivity extends AppCompatActivity {
         static class VH extends RecyclerView.ViewHolder {
             final View dot;
             final TextView name, btnEdit, btnDel;
-
             VH(View root, View dot, TextView name, TextView btnEdit, TextView btnDel) {
                 super(root);
-                this.dot     = dot;
-                this.name    = name;
-                this.btnEdit = btnEdit;
-                this.btnDel  = btnDel;
+                this.dot = dot; this.name = name;
+                this.btnEdit = btnEdit; this.btnDel = btnDel;
             }
         }
     }
