@@ -1,239 +1,140 @@
 package eu.siacs.conversations.ui;
 
-import android.content.Context;
-import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.text.InputType;
-import android.view.Gravity;
-import android.view.Menu;
-import android.view.MenuItem;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.EditText;
-import android.widget.FrameLayout;
-import android.widget.LinearLayout;
+import android.widget.CompoundButton;
 import android.widget.TextView;
-import android.widget.Toast;
 import androidx.annotation.NonNull;
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.widget.Toolbar;
+import androidx.appcompat.widget.SwitchCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
+import android.content.SharedPreferences;
+import android.content.Context;
 import eu.siacs.conversations.R;
 import eu.siacs.conversations.utils.YggdrasilManager;
 
 public class YggdrasilPeersActivity extends AppCompatActivity {
 
     public static final String PREFS_NAME = "yggdrasil_peers";
-    public static final String KEY_PEERS  = "custom_peers";
+    public static final String KEY_DISABLED = "disabled_peers";
 
     private PeerAdapter adapter;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private Runnable statusUpdater;
 
-    // ── Persistence ───────────────────────────────────────────────────────────
-
-    public static List<String> getAllPeers(Context ctx) {
-        SharedPreferences prefs = ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        Set<String> saved = prefs.getStringSet(KEY_PEERS, new HashSet<>());
-        return new ArrayList<>(saved);
-    }
-
-    private static void savePeers(Context ctx, List<String> peers) {
-        ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                .edit().putStringSet(KEY_PEERS, new LinkedHashSet<>(peers)).apply();
-    }
-
-    /** Called by YggdrasilManager — returns all user-saved peers. */
-    public static List<String> getEnabledPeers(Context ctx) {
-        return getAllPeers(ctx);
-    }
-
-    // ── Lifecycle ─────────────────────────────────────────────────────────────
+    // All known peers
+    private static final List<String> ALL_PEERS = Arrays.asList(
+        "tcp://de1.mimir.im:7743?key=1bb8affffffff5ef2b5157b691dc1dd13875c1ec90e789e73bce03af983c4420",
+        "tcp://de2.mimir.im:7743?key=0dedeefeffe7e36dd503d83ac8314859ef2601e0841b6d95fb6168501413c58e",
+        "tcp://sk1.mimir.im:7743?key=0000000003782d918d36b649e77d70a80322b22be41d4b25455bd81f6e58580f",
+        "tcp://sk2.mimir.im:7743?key=00ffed7fdfffa148ab3b01a9c53c20a7bcc8683f621598943f364fcdba034bef",
+        "tcp://us1.mimir.im:7743?key=00ff9bffdbffdd6bd9a2151915d9474545c50d324f7b282bff33ef7c402ebe94",
+        "tcp://45.95.202.21:12403",
+        "tcp://51.15.204.214:12345",
+        "tcp://62.210.85.80:39565"
+    );
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        float dp = getResources().getDisplayMetrics().density;
+        // Build layout programmatically
+        RecyclerView recyclerView = new RecyclerView(this);
+        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+        recyclerView.setPadding(0, 8, 0, 8);
+        setContentView(recyclerView);
 
-        // Root: vertical LinearLayout with Toolbar + RecyclerView
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setLayoutParams(new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT));
-
-        // Toolbar
-        Toolbar toolbar = new Toolbar(this);
-        toolbar.setLayoutParams(new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                (int)(56 * dp)));
-        toolbar.setTitle(R.string.pref_yggdrasil_peers);
-        root.addView(toolbar);
-        setSupportActionBar(toolbar);
         if (getSupportActionBar() != null) {
+            getSupportActionBar().setTitle(R.string.pref_yggdrasil_peers);
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
         }
 
-        // RecyclerView
-        RecyclerView recyclerView = new RecyclerView(this);
-        recyclerView.setLayoutManager(new LinearLayoutManager(this));
-        recyclerView.setPadding(0, (int)(4 * dp), 0, (int)(4 * dp));
-        recyclerView.setClipToPadding(false);
-        LinearLayout.LayoutParams rvParams = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f);
-        recyclerView.setLayoutParams(rvParams);
-        root.addView(recyclerView);
-
-        setContentView(root);
-
-        // Build adapter
+        Set<String> disabled = getDisabledPeers(this);
         List<PeerItem> items = new ArrayList<>();
-        for (String uri : getAllPeers(this)) {
-            items.add(new PeerItem(uri));
+        for (String uri : ALL_PEERS) {
+            items.add(new PeerItem(uri, !disabled.contains(uri)));
         }
-        adapter = new PeerAdapter(items, this, this::showEditDialog, this::deletePeer);
+
+        adapter = new PeerAdapter(items, this);
         recyclerView.setAdapter(adapter);
 
+        // Update peer status every 3 seconds
         statusUpdater = new Runnable() {
-            @Override public void run() {
+            @Override
+            public void run() {
                 updatePeerStatuses();
                 handler.postDelayed(this, 3000);
             }
         };
     }
 
-    @Override public boolean onCreateOptionsMenu(Menu menu) {
-        MenuItem add = menu.add(0, android.R.id.add, 0, R.string.add_peer);
-        add.setIcon(android.R.drawable.ic_menu_add);
-        add.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
-        return true;
-    }
-
-    @Override public boolean onOptionsItemSelected(MenuItem item) {
-        if (item.getItemId() == android.R.id.add) {
-            showAddDialog();
-            return true;
-        }
-        return super.onOptionsItemSelected(item);
-    }
-
-    @Override protected void onResume() {
+    @Override
+    protected void onResume() {
         super.onResume();
         handler.post(statusUpdater);
     }
 
-    @Override protected void onPause() {
+    @Override
+    protected void onPause() {
         super.onPause();
         handler.removeCallbacks(statusUpdater);
     }
 
-    @Override public boolean onSupportNavigateUp() { finish(); return true; }
-
-    // ── Status update ─────────────────────────────────────────────────────────
+    @Override
+    public boolean onSupportNavigateUp() {
+        finish();
+        return true;
+    }
 
     private void updatePeerStatuses() {
         if (adapter == null) return;
+        // Get connected peers from Yggdrasil
         Set<String> connected = YggdrasilManager.getInstance().getConnectedPeers();
         adapter.updateStatuses(connected);
     }
 
-    // ── CRUD dialogs ──────────────────────────────────────────────────────────
+    public static Set<String> getDisabledPeers(Context ctx) {
+        SharedPreferences prefs = ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        return prefs.getStringSet(KEY_DISABLED, new java.util.HashSet<>());
+    }
 
-    private void showAddDialog() { showPeerDialog(null, -1); }
-    private void showEditDialog(PeerItem item, int pos) { showPeerDialog(item, pos); }
+    public static void setDisabledPeers(Context ctx, Set<String> disabled) {
+        ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit().putStringSet(KEY_DISABLED, disabled).apply();
+    }
 
-    private void showPeerDialog(PeerItem existing, int position) {
-        int dp16 = (int)(16 * getResources().getDisplayMetrics().density);
-
-        EditText input = new EditText(this);
-        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
-        input.setHint("tcp://host:port");
-        if (existing != null) {
-            input.setText(existing.uri);
-            input.setSelection(existing.uri.length());
+    public static List<String> getEnabledPeers(Context ctx) {
+        Set<String> disabled = getDisabledPeers(ctx);
+        List<String> enabled = new ArrayList<>();
+        for (String peer : ALL_PEERS) {
+            if (!disabled.contains(peer)) enabled.add(peer);
         }
-
-        LinearLayout container = new LinearLayout(this);
-        container.setPadding(dp16 * 2, dp16, dp16 * 2, 0);
-        container.addView(input, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT));
-
-        String title  = existing == null ? getString(R.string.add_peer)    : getString(R.string.edit_peer);
-        String button = existing == null ? getString(R.string.add_peer_btn): getString(R.string.save_peer_btn);
-
-        new AlertDialog.Builder(this)
-                .setTitle(title)
-                .setView(container)
-                .setPositiveButton(button, (d, w) -> {
-                    String uri = input.getText().toString().trim();
-                    if (uri.isEmpty()) {
-                        Toast.makeText(this, R.string.peer_empty_error, Toast.LENGTH_SHORT).show();
-                        return;
-                    }
-                    if (existing == null) addPeer(uri);
-                    else updatePeer(position, uri);
-                })
-                .setNegativeButton(android.R.string.cancel, null)
-                .show();
-    }
-
-    private void addPeer(String uri) {
-        List<String> peers = getAllPeers(this);
-        if (peers.contains(uri)) {
-            Toast.makeText(this, R.string.peer_duplicate_error, Toast.LENGTH_SHORT).show();
-            return;
-        }
-        peers.add(uri);
-        savePeers(this, peers);
-        adapter.addItem(new PeerItem(uri));
-        YggdrasilManager.getInstance().updatePeers(this);
-    }
-
-    private void updatePeer(int position, String newUri) {
-        List<String> peers = getAllPeers(this);
-        String oldUri = adapter.getItem(position).uri;
-        int idx = peers.indexOf(oldUri);
-        if (idx >= 0) peers.set(idx, newUri); else peers.add(newUri);
-        savePeers(this, peers);
-        adapter.updateItem(position, newUri);
-        YggdrasilManager.getInstance().updatePeers(this);
-    }
-
-    private void deletePeer(PeerItem item, int position) {
-        new AlertDialog.Builder(this)
-                .setTitle(R.string.delete_peer)
-                .setMessage(item.displayName())
-                .setPositiveButton(R.string.delete_peer_btn, (d, w) -> {
-                    List<String> peers = getAllPeers(this);
-                    peers.remove(item.uri);
-                    savePeers(this, peers);
-                    adapter.removeItem(position);
-                    YggdrasilManager.getInstance().updatePeers(this);
-                })
-                .setNegativeButton(android.R.string.cancel, null)
-                .show();
+        return enabled;
     }
 
     // ── Data model ────────────────────────────────────────────────────────────
 
     public static class PeerItem {
-        public String uri;
+        public final String uri;
+        public boolean enabled;
         public boolean online;
 
-        public PeerItem(String uri) { this.uri = uri; }
+        public PeerItem(String uri, boolean enabled) {
+            this.uri = uri;
+            this.enabled = enabled;
+        }
 
         public String displayName() {
+            // tcp://de1.mimir.im:7743?key=... → de1.mimir.im:7743
             String s = uri.replaceFirst("^[a-z]+://", "");
             int q = s.indexOf('?');
             if (q > 0) s = s.substring(0, q);
@@ -241,114 +142,100 @@ public class YggdrasilPeersActivity extends AppCompatActivity {
         }
     }
 
-    // ── Callbacks ─────────────────────────────────────────────────────────────
-
-    interface OnEdit   { void onEdit(PeerItem item, int position); }
-    interface OnDelete { void onDelete(PeerItem item, int position); }
-
     // ── Adapter ───────────────────────────────────────────────────────────────
 
     private static class PeerAdapter extends RecyclerView.Adapter<PeerAdapter.VH> {
 
         private final List<PeerItem> items;
         private final Context ctx;
-        private final OnEdit   onEdit;
-        private final OnDelete onDelete;
 
-        PeerAdapter(List<PeerItem> items, Context ctx, OnEdit onEdit, OnDelete onDelete) {
-            this.items    = items;
-            this.ctx      = ctx;
-            this.onEdit   = onEdit;
-            this.onDelete = onDelete;
-        }
-
-        PeerItem getItem(int pos) { return items.get(pos); }
-
-        void addItem(PeerItem item) {
-            items.add(item);
-            notifyItemInserted(items.size() - 1);
-        }
-
-        void removeItem(int pos) {
-            items.remove(pos);
-            notifyItemRemoved(pos);
-        }
-
-        void updateItem(int pos, String newUri) {
-            items.get(pos).uri = newUri;
-            notifyItemChanged(pos);
+        PeerAdapter(List<PeerItem> items, Context ctx) {
+            this.items = items;
+            this.ctx = ctx;
         }
 
         void updateStatuses(Set<String> connected) {
-            for (PeerItem item : items) item.online = connected.contains(item.uri);
+            for (PeerItem item : items) {
+                item.online = connected.contains(item.uri);
+            }
             notifyDataSetChanged();
         }
 
-        @NonNull @Override
+        @NonNull
+        @Override
         public VH onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-            float density = ctx.getResources().getDisplayMetrics().density;
-            int dp8  = (int)(8  * density);
-            int dp16 = (int)(16 * density);
-
-            LinearLayout row = new LinearLayout(ctx);
-            row.setOrientation(LinearLayout.HORIZONTAL);
-            row.setPadding(dp16, dp16, dp8, dp16);
-            row.setGravity(Gravity.CENTER_VERTICAL);
+            // Build row layout programmatically
+            android.widget.LinearLayout row = new android.widget.LinearLayout(ctx);
+            row.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+            row.setPadding(48, 24, 48, 24);
+            row.setGravity(android.view.Gravity.CENTER_VERTICAL);
             row.setLayoutParams(new RecyclerView.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT));
 
             // Status dot
             View dot = new View(ctx);
-            LinearLayout.LayoutParams dotParams = new LinearLayout.LayoutParams(dp8 * 2, dp8 * 2);
+            int dp8 = (int) (8 * ctx.getResources().getDisplayMetrics().density);
+            android.widget.LinearLayout.LayoutParams dotParams =
+                    new android.widget.LinearLayout.LayoutParams(dp8 * 2, dp8 * 2);
             dotParams.setMarginEnd(dp8 * 2);
             dot.setLayoutParams(dotParams);
+            dot.setBackgroundResource(android.R.drawable.presence_offline);
             row.addView(dot);
 
             // Peer name
             TextView name = new TextView(ctx);
-            name.setLayoutParams(new LinearLayout.LayoutParams(0,
-                    ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+            android.widget.LinearLayout.LayoutParams nameParams =
+                    new android.widget.LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+            name.setLayoutParams(nameParams);
             name.setTextSize(14);
             row.addView(name);
 
-            // Edit button
-            TextView btnEdit = new TextView(ctx);
-            btnEdit.setText("✎");
-            btnEdit.setTextSize(20);
-            btnEdit.setPadding(dp16, dp8, dp8, dp8);
-            row.addView(btnEdit);
+            // Switch
+            SwitchCompat sw = new SwitchCompat(ctx);
+            row.addView(sw);
 
-            // Delete button
-            TextView btnDel = new TextView(ctx);
-            btnDel.setText("✕");
-            btnDel.setTextSize(20);
-            btnDel.setPadding(dp8, dp8, dp16, dp8);
-            row.addView(btnDel);
-
-            return new VH(row, dot, name, btnEdit, btnDel);
+            return new VH(row, dot, name, sw);
         }
 
         @Override
         public void onBindViewHolder(@NonNull VH holder, int position) {
             PeerItem item = items.get(position);
             holder.name.setText(item.displayName());
-            holder.dot.setBackgroundColor(item.online ? 0xFF00C853 : 0xFF757575);
-            holder.btnEdit.setOnClickListener(v ->
-                    onEdit.onEdit(item, holder.getAdapterPosition()));
-            holder.btnDel.setOnClickListener(v ->
-                    onDelete.onDelete(item, holder.getAdapterPosition()));
+            holder.sw.setOnCheckedChangeListener(null);
+            holder.sw.setChecked(item.enabled);
+
+            // Status color
+            if (item.online) {
+                holder.dot.setBackgroundColor(0xFF00C853); // emerald green
+            } else {
+                holder.dot.setBackgroundColor(0xFF757575); // grey
+            }
+
+            holder.sw.setOnCheckedChangeListener((btn, checked) -> {
+                item.enabled = checked;
+                Set<String> disabled = new java.util.HashSet<>(getDisabledPeers(ctx));
+                if (checked) disabled.remove(item.uri);
+                else disabled.add(item.uri);
+                setDisabledPeers(ctx, disabled);
+                // Update YggdrasilManager peer list
+                YggdrasilManager.getInstance().updatePeers(ctx);
+            });
         }
 
-        @Override public int getItemCount() { return items.size(); }
+        @Override
+        public int getItemCount() { return items.size(); }
 
         static class VH extends RecyclerView.ViewHolder {
             final View dot;
-            final TextView name, btnEdit, btnDel;
-            VH(View root, View dot, TextView name, TextView btnEdit, TextView btnDel) {
+            final TextView name;
+            final SwitchCompat sw;
+
+            VH(View root, View dot, TextView name, SwitchCompat sw) {
                 super(root);
-                this.dot = dot; this.name = name;
-                this.btnEdit = btnEdit; this.btnDel = btnDel;
+                this.dot = dot;
+                this.name = name;
+                this.sw = sw;
             }
         }
     }
