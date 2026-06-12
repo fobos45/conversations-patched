@@ -11,6 +11,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.ViewGroup;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -18,8 +19,11 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.SwitchCompat;
+import androidx.appcompat.widget.Toolbar;
+import androidx.coordinatorlayout.widget.CoordinatorLayout;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.util.ArrayList;
@@ -97,15 +101,52 @@ public class YggdrasilPeersActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        RecyclerView rv = new RecyclerView(this);
-        rv.setLayoutManager(new LinearLayoutManager(this));
-        rv.setPadding(0, 8, 0, 8);
-        setContentView(rv);
+        // Build layout: CoordinatorLayout > (Toolbar + RecyclerView + FAB)
+        CoordinatorLayout root = new CoordinatorLayout(this);
+        root.setLayoutParams(new ViewGroup.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT));
 
+        // Toolbar
+        Toolbar toolbar = new Toolbar(this);
+        toolbar.setId(android.R.id.primary);
+        CoordinatorLayout.LayoutParams tbParams = new CoordinatorLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, dp(56));
+        toolbar.setLayoutParams(tbParams);
+        toolbar.setBackgroundColor(resolveColor(com.google.android.material.R.attr.colorSurface));
+        root.addView(toolbar);
+        setSupportActionBar(toolbar);
         if (getSupportActionBar() != null) {
             getSupportActionBar().setTitle(R.string.pref_yggdrasil_peers);
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
         }
+
+        // RecyclerView below toolbar
+        RecyclerView rv = new RecyclerView(this);
+        CoordinatorLayout.LayoutParams rvParams = new CoordinatorLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT);
+        rvParams.topMargin = dp(56);
+        rvParams.bottomMargin = dp(72);
+        rv.setLayoutParams(rvParams);
+        rv.setLayoutManager(new LinearLayoutManager(this));
+        rv.setPadding(0, 8, 0, 8);
+        root.addView(rv);
+
+        // FAB for adding peers
+        FloatingActionButton fab = new FloatingActionButton(this);
+        CoordinatorLayout.LayoutParams fabParams = new CoordinatorLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT);
+        fabParams.gravity = Gravity.BOTTOM | Gravity.END;
+        int margin = dp(16);
+        fabParams.setMargins(margin, margin, margin, margin);
+        fab.setLayoutParams(fabParams);
+        fab.setContentDescription(getString(R.string.ygg_add_peer));
+        fab.setOnClickListener(v -> showAddDialog(null, -1));
+        root.addView(fab);
+
+        setContentView(root);
 
         adapter = new PeerAdapter(loadPeers(this), this);
         rv.setAdapter(adapter);
@@ -119,15 +160,7 @@ public class YggdrasilPeersActivity extends AppCompatActivity {
     }
 
     @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        menu.add(0, 1, 0, R.string.ygg_add_peer)
-            .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
-        return true;
-    }
-
-    @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        if (item.getItemId() == 1) { showAddDialog(null, -1); return true; }
         if (item.getItemId() == android.R.id.home) { finish(); return true; }
         return super.onOptionsItemSelected(item);
     }
@@ -210,6 +243,12 @@ public class YggdrasilPeersActivity extends AppCompatActivity {
 
     int dp(int v) {
         return (int)(v * getResources().getDisplayMetrics().density);
+    }
+
+    int resolveColor(int attr) {
+        android.util.TypedValue tv = new android.util.TypedValue();
+        getTheme().resolveAttribute(attr, tv, true);
+        return tv.data;
     }
 
     // ── Data model ────────────────────────────────────────────────────────────
