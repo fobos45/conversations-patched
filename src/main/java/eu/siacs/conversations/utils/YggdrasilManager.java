@@ -13,7 +13,6 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -33,12 +32,7 @@ public class YggdrasilManager {
     public static final String TAG = "YggdrasilManager";
     public static final int SOCKS_PORT = 1080;
 
-    private static final List<String> DEFAULT_PEERS = Arrays.asList(
-        
-        "tcp://45.95.202.21:12403",
-        "tcp://51.15.204.214:12345",
-        "tcp://62.210.85.80:39565"
-    );
+    // No hardcoded peers — all peers are managed by the user via YggdrasilPeersActivity.
 
     private static final YggdrasilManager INSTANCE = new YggdrasilManager();
     private final AtomicBoolean running = new AtomicBoolean(false);
@@ -63,7 +57,6 @@ public class YggdrasilManager {
         if (running.get()) return;
         try {
             List<String> peerList = YggdrasilPeersActivity.getEnabledPeers(appContext);
-            if (peerList.isEmpty()) peerList = DEFAULT_PEERS;
             String peers = String.join("\n", peerList);
             Log.i(TAG, "Starting Yggdrasil node...");
             yggmobile.Yggmobile.start(peers);
