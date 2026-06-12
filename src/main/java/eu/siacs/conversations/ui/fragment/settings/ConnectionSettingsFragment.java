@@ -1,5 +1,6 @@
 package eu.siacs.conversations.ui.fragment.settings;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.Toast;
@@ -7,13 +8,12 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.preference.SwitchPreferenceCompat;
 import com.google.common.base.Strings;
-import android.content.Intent;
 import eu.siacs.conversations.AppSettings;
-import eu.siacs.conversations.ui.YggdrasilPeersActivity;
 import eu.siacs.conversations.Config;
 import eu.siacs.conversations.R;
 import eu.siacs.conversations.entities.Account;
 import eu.siacs.conversations.services.QuickConversationsService;
+import eu.siacs.conversations.ui.YggdrasilPeersActivity;
 import eu.siacs.conversations.utils.Resolver;
 import eu.siacs.conversations.utils.YggdrasilManager;
 import java.util.Arrays;
@@ -62,15 +62,10 @@ public class ConnectionSettingsFragment extends XmppPreferenceFragment {
             if (addr != null && !addr.isEmpty()) {
                 yggPref.setSummary(getString(R.string.pref_use_yggdrasil_summary) + "\n\n" + addr);
             } else {
-                yggPref.setSummary(getString(R.string.pref_use_yggdrasil_summary) + "\n\nRunning");
+                yggPref.setSummary(getString(R.string.pref_use_yggdrasil_summary) + "\n\nЗапущен");
             }
         } else {
-            final String err = YggdrasilManager.getInstance().getLastError();
-            if (!err.isEmpty()) {
-                yggPref.setSummary(getString(R.string.pref_use_yggdrasil_summary) + "\n\nError: " + err);
-            } else {
-                yggPref.setSummary(R.string.pref_use_yggdrasil_summary);
-            }
+            yggPref.setSummary(R.string.pref_use_yggdrasil_summary);
         }
     }
 
@@ -81,6 +76,12 @@ public class ConnectionSettingsFragment extends XmppPreferenceFragment {
             case AppSettings.USE_TOR -> {
                 final var appSettings = new AppSettings(requireContext());
                 if (appSettings.isUseTor()) {
+                    // Disable Yggdrasil when Tor is enabled
+                    final SwitchPreferenceCompat yggPref = findPreference(AppSettings.USE_YGGDRASIL);
+                    if (yggPref != null && yggPref.isChecked()) {
+                        yggPref.setChecked(false);
+                        YggdrasilManager.getInstance().stop();
+                    }
                     runOnUiThread(
                             () ->
                                     Toast.makeText(
@@ -95,25 +96,13 @@ public class ConnectionSettingsFragment extends XmppPreferenceFragment {
             case AppSettings.USE_YGGDRASIL -> {
                 final var appSettings = new AppSettings(requireContext());
                 if (appSettings.isUseYggdrasil()) {
+                    // Disable Tor when Yggdrasil is enabled
+                    final SwitchPreferenceCompat torPref = findPreference(AppSettings.USE_TOR);
+                    if (torPref != null && torPref.isChecked()) {
+                        torPref.setChecked(false);
+                    }
                     YggdrasilManager.getInstance().start(requireContext());
-                    requireView().postDelayed(() -> {                        final String err = YggdrasilManager.getInstance().getLastError();
-                        android.util.Log.e("YggdrasilManager", "FULL ERROR: " + err);
-                        final String errMsg = err.isEmpty() ? "No error but node not running" : err;
-                        {
-                            android.widget.ScrollView sv = new android.widget.ScrollView(requireContext());
-                            android.widget.TextView tv = new android.widget.TextView(requireContext());
-                            tv.setText(errMsg);
-                            tv.setTextIsSelectable(true);
-                            tv.setPadding(32, 16, 32, 16);
-                            sv.addView(tv);
-                            new androidx.appcompat.app.AlertDialog.Builder(requireContext())
-                                    .setTitle("Yggdrasil Error")
-                                    .setView(sv)
-                                    .setPositiveButton(android.R.string.ok, null)
-                                    .show();
-                        }
-                        updateYggdrasilSummary();
-                    }, 5000);
+                    requireView().postDelayed(this::updateYggdrasilSummary, 3000);
                 } else {
                     YggdrasilManager.getInstance().stop();
                     updateYggdrasilSummary();
@@ -149,46 +138,4 @@ public class ConnectionSettingsFragment extends XmppPreferenceFragment {
         requireActivity().setTitle(R.string.pref_connection_options);
         updateYggdrasilSummary();
     }
-
-    private void startLogcatCapture(android.content.Context ctx) {
-        new Thread(() -> {
-            try {
-                // Capture logcat for this process only
-                int pid = android.os.Process.myPid();
-                Process process = Runtime.getRuntime().exec(
-                    new String[]{"logcat", "-d", "--pid=" + pid, "*:V"});
-                java.io.BufferedReader br = new java.io.BufferedReader(
-                    new java.io.InputStreamReader(process.getInputStream()));
-                StringBuilder sb = new StringBuilder();
-                String line;
-                while ((line = br.readLine()) != null) {
-                    sb.append(line).append("\n");
-                }
-                // Also run fresh logcat for 8 seconds after this point
-                Process p2 = Runtime.getRuntime().exec(
-                    new String[]{"logcat", "--pid=" + pid, "*:V"});
-                java.io.BufferedReader br2 = new java.io.BufferedReader(
-                    new java.io.InputStreamReader(p2.getInputStream()));
-                long end = System.currentTimeMillis() + 8000;
-                while (System.currentTimeMillis() < end) {
-                    if (br2.ready()) {
-                        line = br2.readLine();
-                        if (line != null) sb.append(line).append("\n");
-                    } else {
-                        Thread.sleep(50);
-                    }
-                }
-                p2.destroy();
-                String log = sb.toString();
-                android.util.Log.e("YGG_UI", "Captured " + log.length() + " chars of logcat");
-                // Write to cache
-                java.io.FileWriter fw = new java.io.FileWriter(
-                    new java.io.File(ctx.getCacheDir(), "ygg_logcat.txt"));
-                fw.write(log);
-                fw.close();
-            } catch (Exception e) {
-                android.util.Log.e("YGG_UI", "logcat capture failed: " + e);
-            }
-        }, "LogcatCapture").start();
-    }
-
+}
