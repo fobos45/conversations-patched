@@ -536,6 +536,12 @@
     <string name="pref_yggdrasil_peers">Пиры Yggdrasil</string>
     <string name="pref_yggdrasil_peers_summary">Управление списком пиров Yggdrasil</string>
     <string name="add_peer">Добавить пир</string>
+    <string name="add_peer_btn">Добавить</string>
+    <string name="delete_peer">Удалить пир</string>
+    <string name="delete_peer_btn">Удалить</string>
+    <string name="peer_empty_error">URI не может быть пустым</string>
+    <string name="peer_duplicate_error">Такой пир уже существует</string>
+    <string name="add_peer">Добавить пир</string>
     <string name="edit_peer">Редактировать пир</string>
     <string name="delete_peer">Удалить пир</string>
     <string name="add_peer_btn">Добавить</string>
