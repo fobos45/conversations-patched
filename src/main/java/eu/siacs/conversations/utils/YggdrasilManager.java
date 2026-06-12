@@ -32,8 +32,6 @@ public class YggdrasilManager {
     public static final String TAG = "YggdrasilManager";
     public static final int SOCKS_PORT = 1080;
 
-    // No hardcoded peers — all peers are managed by the user via YggdrasilPeersActivity.
-
     private static final YggdrasilManager INSTANCE = new YggdrasilManager();
     private final AtomicBoolean running = new AtomicBoolean(false);
     private ServerSocket serverSocket;
