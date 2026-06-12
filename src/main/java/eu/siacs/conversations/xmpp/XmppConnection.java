@@ -343,7 +343,11 @@ public class XmppConnection implements Runnable {
             final boolean useTorSetting = appSettings.isUseTor();
             final boolean extended = appSettings.isExtendedConnectionOptions();
             final boolean useTor = useTorSetting || account.isOnion();
-            final boolean useYggdrasil = appSettings.isUseYggdrasil() || account.isYggdrasil();
+            // Toggle in settings has priority over account IPv6 auto-detection.
+            // If the toggle is OFF — Yggdrasil is never started, even for IPv6 accounts.
+            // If the toggle is ON — Yggdrasil is used (for all accounts, or only IPv6 ones).
+            final boolean yggdrasilToggle = appSettings.isUseYggdrasil();
+            final boolean useYggdrasil = yggdrasilToggle && account.isYggdrasil();
             // TODO collapse Tor usage into normal connection code path
             if (useYggdrasil) {
                 // Ensure Yggdrasil node is running
@@ -629,7 +633,7 @@ public class XmppConnection implements Runnable {
                     };
             this.changeState(target);
         } catch (final SocksSocketFactory.SocksProxyNotFoundException e) {
-            if (new AppSettings(mXmppConnectionService).isUseYggdrasil()) {
+            if (new AppSettings(mXmppConnectionService).isUseYggdrasil() && account.isYggdrasil()) {
                 this.changeState(Account.State.YGGDRASIL_NOT_AVAILABLE);
             } else {
                 this.changeState(Account.State.TOR_NOT_AVAILABLE);
