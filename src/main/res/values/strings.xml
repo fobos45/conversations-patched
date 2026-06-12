@@ -541,14 +541,6 @@
     <string name="delete_peer_btn">Удалить</string>
     <string name="peer_empty_error">URI не может быть пустым</string>
     <string name="peer_duplicate_error">Такой пир уже существует</string>
-    <string name="add_peer">Добавить пир</string>
-    <string name="edit_peer">Редактировать пир</string>
-    <string name="delete_peer">Удалить пир</string>
-    <string name="add_peer_btn">Добавить</string>
-    <string name="save_peer_btn">Сохранить</string>
-    <string name="delete_peer_btn">Удалить</string>
-    <string name="peer_empty_error">URI не может быть пустым</string>
-    <string name="peer_duplicate_error">Такой пир уже существует</string>
     <string name="account_settings_hostname">Hostname</string>
     <string name="account_settings_port">Port</string>
     <string name="hostname_or_onion">Server- or .onion-address</string>
