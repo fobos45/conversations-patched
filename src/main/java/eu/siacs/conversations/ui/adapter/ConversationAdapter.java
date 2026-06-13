@@ -256,9 +256,8 @@ public class ConversationAdapter
             viewHolder.binding.serverStripe.setBackgroundColor(stripeColor);
         }
 
-        // Show server domain label
-        viewHolder.binding.serverName.setText(conversation.getAccount().getServer());
-        viewHolder.binding.serverName.setVisibility(View.VISIBLE);
+        // Server domain label hidden
+        viewHolder.binding.serverName.setVisibility(View.GONE);
 
         final Message message = conversation.getLatestMessage();
         final int status = message.getStatus();
