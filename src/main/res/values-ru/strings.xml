@@ -1272,4 +1272,13 @@
     <string name="select_all">Выбрать все</string>
     <string name="search_in_chats">Поиск в беседах</string>
     <string name="search_for_x_in_chats">Поиск \"%s\" в беседах</string>
+    <string name="pref_use_yggdrasil">Соединение через Yggdrasil</string>
+    <string name="pref_use_yggdrasil_summary">Туннелировать XMPP через оверлейную сеть Yggdrasil. Слот VPN не требуется</string>
+    <string name="pref_yggdrasil_peers">Пиры Yggdrasil</string>
+    <string name="pref_yggdrasil_peers_summary">Управление списком пиров Yggdrasil</string>
+    <string name="ygg_add_peer">Добавить пир</string>
+    <string name="ygg_edit_peer">Редактировать пир</string>
+    <string name="ygg_delete_peer">Удалить</string>
+    <string name="ygg_invalid_peer">Неверный формат. Используйте tcp:// tls:// или quic://</string>
+    <string name="account_status_yggdrasil_unavailable">Сеть Yggdrasil недоступна</string>
 </resources>
