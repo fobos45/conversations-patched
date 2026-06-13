@@ -471,8 +471,8 @@ public class ConversationAdapter
         final float density = activity.getResources().getDisplayMetrics().density;
         // Scale levels: 1=tiny, 2=normal, 3=large, 4=larger, 5=huge
         final float[] avatarSizes = {36f, 48f, 56f, 64f, 72f};
-        final float[] nameSizes   = {11f, 13f, 15f, 17f, 19f};
-        final float[] subSizes    = {9f,  11f, 13f, 14f, 15f};
+        final float[] nameSizes   = {13f, 16f, 18f, 20f, 22f};
+        final float[] subSizes    = {9f,  11f, 12f, 13f, 14f};
         final int[] paddings    = {0,   1,   2,   3,   4};
         final int idx = Math.max(0, Math.min(4, scale - 1));
         final int avatarPx = Math.round(avatarSizes[idx] * density);
