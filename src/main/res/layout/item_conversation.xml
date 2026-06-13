@@ -74,6 +74,7 @@
                         android:layout_toStartOf="@+id/conversation_lastupdate"
                         android:ellipsize="end"
                         android:maxLines="1"
+                        android:textSize="17sp"
                         tools:text="Juliet Capulet" />
 
                     <TextView
@@ -136,6 +137,8 @@
                                 android:maxLines="1"
                                 android:minHeight="18sp"
                                 android:scrollHorizontally="false"
+                                android:textSize="13sp"
+                                android:textColor="?colorOnSurfaceVariant"
                                 tools:text="Hi. What’s up?" />
                         </LinearLayout>
 
