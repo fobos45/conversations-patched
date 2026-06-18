@@ -1,59 +1,45 @@
-# Патч: звонки через встроенный Yggdrasil между разными сетями
+# Патч v2: звонки через встроенный Yggdrasil — fix ICE gathering never completes
 
-## Причина бага (подтверждена логом)
+## Что было не так (v1 → v2)
 
-Встроенный Yggdrasil-клиент (`yggmobile.go`) не имеет TUN-интерфейса и умел
-ходить наружу только через TCP (`DialTCP`), который используется локальным
-SOCKS5-прокси (`YggdrasilManager`, порт 1080) — отсюда работающие текст и
-XMPP-соединение. WebRTC же открывает свои ICE/STUN/TURN-сокеты по UDP прямо
-через системный сетевой стек Android, минуя этот прокси. Поскольку UDP в
-yggmobile не было реализовано вообще, ICE-агент не мог достать ни до STUN,
-ни до TURN сервера, обнаруженных по адресу в сети Yggdrasil — оставались
-только локальные host-кандидаты, которые совпадают только в одной Wi‑Fi сети.
+В v1 relay-кандидат успешно собирался через TURN-сервер в Yggdrasil, но
+`onIceGatheringChange(COMPLETE)` так и не приходил — gathering висел вечно.
+Без COMPLETE WebRTC не запускает финальный DTLS-хендшейк, звонок застревает
+в "Соединение" навсегда.
 
-## Что меняет патч
+Причина: XEP-0215 возвращает два ICE-сервера с одним Yggdrasil-адресом:
+`stun:[200:f28e:...]` и `turn:[200:f28e:...]`. Оба переписывались в один
+и тот же bridge (`127.0.0.1:38029`). WebRTC открывал ДВА внутренних ICE-
+сокета — один для STUN, один для TURN — и оба писали на один порт с разных
+ephemeral-портов. Поле `lastWebRtcEndpoint` перезаписывалось последним
+пишущим, ответы уходили не на тот сокет. TURN-сокет получал ответ,
+STUN-сокет — нет, gathering никогда не считался завершённым.
 
-1. **`yggmobile/yggmobile.go`** — добавлена поддержка UDP поверх существующего
-   userspace IP-стека (`DialUDP`, `YggUDPConn`), по той же схеме, что уже
-   работает для TCP.
-2. **`YggdrasilCallRelay.java`** (новый файл) — локальный UDP-релей на
-   `127.0.0.1:<порт>` для каждого обнаруженного STUN/TURN-сервера. WebRTC
-   общается с этим loopback-адресом как с обычным сервером; релей прозрачно
-   перекидывает байты в реальный сервер через `yggmobile.DialUDP`, не трогая
-   сам STUN/TURN протокол.
-3. **`JingleRtpConnection.java`** (`setupWebRTC`) — если звонок идёт через
-   аккаунт с включённым Yggdrasil, ICE-серверы подменяются на локальные через
-   `YggdrasilCallRelay`, и принудительно включается relay-only ICE
-   (`iceTransportsType = RELAY`), независимо от отдельной настройки
-   "use_relays".
-4. **`YggdrasilManager.java`** — при остановке Yggdrasil-узла дополнительно
-   останавливаются все relay-мосты (чистое завершение потоков/сокетов).
+## Что исправлено
 
-## Как собрать через GitHub Desktop
+**YggdrasilCallRelay.java** — два изменения:
 
-Эти файлы повторяют пути в репозитории. Распакуйте архив поверх вашей
-локальной рабочей копии (так, чтобы `yggmobile/yggmobile.go` лёг на старый
-файл, и так далее — подтвердите перезапись).
+1. `stun`/`stuns` серверы теперь **исключаются** из списка полностью
+   (не перезаписываются, а просто не добавляются в результат). При
+   relay-only политике ICE они дают только srflx-кандидатов, которые
+   сразу выбрасываются — они бесполезны и только мешали.
 
-В GitHub Desktop: откройте репозиторий → во вкладке Changes увидите 3
-изменённых файла и 1 новый (`YggdrasilCallRelay.java`) → впишите commit
-message → Commit to main → Push origin.
+2. Вместо `lastWebRtcEndpoint` (одна переменная на всех) добавлен роутинг
+   по STUN Transaction ID: для каждого исходящего STUN/TURN Request/
+   Indication в `txMap` запоминается пара TxID → WebRTC endpoint. Ответ
+   (Success/Error response) по TxID находит нужный сокет. Для не-STUN
+   фреймов (TURN ChannelData) используется fallback на `lastWebRtcEndpoint`.
+   Это делает bridge корректным даже если в будущем несколько сокетов снова
+   окажутся на одном порте.
 
-Дальше всё собирается автоматически в GitHub Actions (workflow
-`build.yml`, триггер на push в `main`): он сам клонирует yggdrasil-go,
-прогоняет `gomobile bind` по обновлённому `yggmobile.go` (так что
-UDP-изменения попадут в `libs/yggdrasil.aar` без какой-либо ручной работы),
-и собирает `assembleConversationsFreeDebug`. APK забирайте из Actions →
-последний run → Artifacts → `conversations-patched-debug`.
+## Файлы в этом архиве
 
-Если хотите релизный APK — есть отдельный workflow `build-release.yml`,
-запускается вручную (workflow_dispatch) из вкладки Actions на GitHub.
+- `yggmobile/yggmobile.go` — добавлен UDP (`DialUDP`, `YggUDPConn`)
+- `src/.../utils/YggdrasilCallRelay.java` — основной relay (v2, исправлен)
+- `src/.../utils/YggdrasilManager.java` — shutdownAll при выключении Yggdrasil
+- `src/.../xmpp/jingle/JingleRtpConnection.java` — вызов relay + relay-only ICE
 
-## Как проверить, что починилось
+## Сборка
 
-После установки нового APK на оба устройства (в разных сетях) включите
-тумблер Yggdrasil и позвоните. В `adb logcat` по тем же ключевым словам,
-что и раньше (`jingle`, `webrtc`, `candidate`, `yggdrasil`), теперь должны
-появиться кандидаты типа `relay` с адресом `127.0.0.1:<порт>` вместо
-единственного `typ host` с адресом CGNAT/LAN, и звонок должен установиться
-вместо падения в `CONNECTIVITY_ERROR` через ~15 секунд.
+Распакуйте поверх рабочей копии → GitHub Desktop покажет 3 изменённых + 1
+новый файл → commit → push → GitHub Actions соберёт APK автоматически.
