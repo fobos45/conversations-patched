@@ -35,6 +35,7 @@ import eu.siacs.conversations.entities.RtpSessionStatus;
 import eu.siacs.conversations.services.CallIntegration;
 import eu.siacs.conversations.services.XmppConnectionService;
 import eu.siacs.conversations.ui.RtpSessionActivity;
+import eu.siacs.conversations.utils.YggdrasilCallRelay;
 import eu.siacs.conversations.xml.Element;
 import eu.siacs.conversations.xml.Namespace;
 import eu.siacs.conversations.xmpp.Jid;
@@ -2358,8 +2359,32 @@ public class JingleRtpConnection extends AbstractJingleConnection
                 .ensureConnectionIsRegistered(this);
         this.webRTCWrapper.setup(this.xmppConnectionService);
         final var appSettings = new AppSettings(xmppConnectionService.getApplicationContext());
+        // The embedded Yggdrasil client has no TUN interface, so WebRTC's
+        // native ICE agent can never reach a STUN/TURN server living inside
+        // the Yggdrasil overlay directly, and host/srflx candidates can
+        // never connect across two different real-world networks either.
+        // We rewrite the discovered ICE servers to point at a local
+        // loopback relay (see YggdrasilCallRelay) and force relay-only ICE,
+        // regardless of the user's separate "always use relays" preference.
+        final boolean viaYggdrasil =
+                appSettings.isUseYggdrasil() && this.id.account.isYggdrasil();
+        final Collection<PeerConnection.IceServer> effectiveIceServers;
+        final boolean effectiveUseRelays;
+        if (viaYggdrasil) {
+            effectiveIceServers = YggdrasilCallRelay.getInstance().remapIceServers(iceServers);
+            effectiveUseRelays = true;
+            Log.d(
+                    Config.LOGTAG,
+                    id.account.getJid().asBareJid()
+                            + ": routing call ICE through local Yggdrasil relay ("
+                            + effectiveIceServers.size()
+                            + " server(s))");
+        } else {
+            effectiveIceServers = iceServers;
+            effectiveUseRelays = appSettings.isUseRelays();
+        }
         this.webRTCWrapper.initializePeerConnection(
-                media, iceServers, trickle, appSettings.isUseRelays());
+                media, effectiveIceServers, trickle, effectiveUseRelays);
         // this.webRTCWrapper.setMicrophoneEnabledOrThrow(callIntegration.isMicrophoneEnabled());
         this.webRTCWrapper.setMicrophoneEnabledOrThrow(true);
     }

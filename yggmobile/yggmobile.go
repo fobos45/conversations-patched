@@ -141,6 +141,41 @@ func DialTCP(dst string, port int) (*YggConn, error) {
 	return &YggConn{conn: conn}, nil
 }
 
+// DialUDP opens a UDP "connection" to dst:port via the Yggdrasil overlay.
+// Unlike DialTCP there is no handshake: this just allocates a local
+// ephemeral port and lets the caller Write/Read datagrams to/from it.
+func DialUDP(dst string, port int) (*YggUDPConn, error) {
+	if !running.Load() || mux == nil {
+		return nil, fmt.Errorf("not running")
+	}
+
+	dstIP := net.ParseIP(dst).To16()
+	if dstIP == nil {
+		return nil, fmt.Errorf("invalid IPv6: %s", dst)
+	}
+	srcIP := net.ParseIP(address).To16()
+	if srcIP == nil {
+		return nil, fmt.Errorf("bad local addr: %s", address)
+	}
+
+	srcPort := uint16(40000 + rand.Intn(20000))
+	dstPort := uint16(port)
+
+	conn := &udpConn{
+		src:     srcIP,
+		dst:     dstIP,
+		srcPort: srcPort,
+		dstPort: dstPort,
+		rw:      iprwc,
+		recvCh:  make(chan []byte, 64),
+	}
+
+	mux.registerUDP(srcPort, conn.recvCh)
+	conn.mux = mux
+
+	return &YggUDPConn{conn: conn}, nil
+}
+
 // ── Packet multiplexer ────────────────────────────────────────────────────────
 
 type connKey struct {
@@ -155,15 +190,18 @@ type tcpSegment struct {
 }
 
 type packetMux struct {
-	rw      io.ReadWriter
-	mu      sync.RWMutex
-	conns   map[connKey]chan<- tcpSegment
+	rw       io.ReadWriter
+	mu       sync.RWMutex
+	conns    map[connKey]chan<- tcpSegment
+	udpMu    sync.RWMutex
+	udpConns map[uint16]chan<- []byte // keyed by our local (dst) port only — UDP is connectionless
 }
 
 func newPacketMux(rw io.ReadWriter) *packetMux {
 	return &packetMux{
-		rw:    rw,
-		conns: make(map[connKey]chan<- tcpSegment),
+		rw:       rw,
+		conns:    make(map[connKey]chan<- tcpSegment),
+		udpConns: make(map[uint16]chan<- []byte),
 	}
 }
 
@@ -177,6 +215,18 @@ func (m *packetMux) unregister(key connKey) {
 	m.mu.Lock()
 	delete(m.conns, key)
 	m.mu.Unlock()
+}
+
+func (m *packetMux) registerUDP(localPort uint16, ch chan<- []byte) {
+	m.udpMu.Lock()
+	m.udpConns[localPort] = ch
+	m.udpMu.Unlock()
+}
+
+func (m *packetMux) unregisterUDP(localPort uint16) {
+	m.udpMu.Lock()
+	delete(m.udpConns, localPort)
+	m.udpMu.Unlock()
 }
 
 func (m *packetMux) run(stop <-chan struct{}) {
@@ -194,44 +244,86 @@ func (m *packetMux) run(stop <-chan struct{}) {
 		}
 		pkt := buf[:n]
 
-		// Must be IPv6 (version=6) with TCP (next header=6)
-		if len(pkt) < 54 || pkt[0]>>4 != 6 || pkt[6] != 6 {
+		// Must be IPv6 (version=6)
+		if len(pkt) < 48 || pkt[0]>>4 != 6 {
 			continue
 		}
 
-		tcp := pkt[40:]
-		if len(tcp) < 20 {
+		switch pkt[6] {
+		case protoTCP:
+			m.handleTCP(pkt)
+		case protoUDP:
+			m.handleUDP(pkt)
+		default:
 			continue
 		}
+	}
+}
 
-		dport := binary.BigEndian.Uint16(tcp[0:2]) // remote src → our dst
-		sport := binary.BigEndian.Uint16(tcp[2:4]) // remote dst → our src
+func (m *packetMux) handleTCP(pkt []byte) {
+	if len(pkt) < 60 {
+		return
+	}
+	tcp := pkt[40:]
+	if len(tcp) < 20 {
+		return
+	}
 
-		key := connKey{srcPort: sport, dstPort: dport}
+	dport := binary.BigEndian.Uint16(tcp[0:2]) // remote src → our dst
+	sport := binary.BigEndian.Uint16(tcp[2:4]) // remote dst → our src
 
-		dataOffset := int((tcp[12] >> 4) * 4)
-		var payload []byte
-		if dataOffset < len(tcp) {
-			payload = make([]byte, len(tcp)-dataOffset)
-			copy(payload, tcp[dataOffset:])
+	key := connKey{srcPort: sport, dstPort: dport}
+
+	dataOffset := int((tcp[12] >> 4) * 4)
+	var payload []byte
+	if dataOffset < len(tcp) {
+		payload = make([]byte, len(tcp)-dataOffset)
+		copy(payload, tcp[dataOffset:])
+	}
+
+	seg := tcpSegment{
+		flags:   tcp[13],
+		seq:     binary.BigEndian.Uint32(tcp[4:8]),
+		ack:     binary.BigEndian.Uint32(tcp[8:12]),
+		payload: payload,
+	}
+
+	m.mu.RLock()
+	ch, ok := m.conns[key]
+	m.mu.RUnlock()
+
+	if ok {
+		select {
+		case ch <- seg:
+		default:
 		}
+	}
+}
 
-		seg := tcpSegment{
-			flags:   tcp[13],
-			seq:     binary.BigEndian.Uint32(tcp[4:8]),
-			ack:     binary.BigEndian.Uint32(tcp[8:12]),
-			payload: payload,
-		}
+func (m *packetMux) handleUDP(pkt []byte) {
+	if len(pkt) < 48 {
+		return
+	}
+	udp := pkt[40:]
+	if len(udp) < 8 {
+		return
+	}
 
-		m.mu.RLock()
-		ch, ok := m.conns[key]
-		m.mu.RUnlock()
+	// dport here is from the remote peer's perspective (its dst == our src,
+	// i.e. our local ephemeral port); that's the only thing we key on.
+	ourPort := binary.BigEndian.Uint16(udp[2:4])
 
-		if ok {
-			select {
-			case ch <- seg:
-			default:
-			}
+	payload := make([]byte, len(udp)-8)
+	copy(payload, udp[8:])
+
+	m.udpMu.RLock()
+	ch, ok := m.udpConns[ourPort]
+	m.udpMu.RUnlock()
+
+	if ok {
+		select {
+		case ch <- payload:
+		default:
 		}
 	}
 }
@@ -371,7 +463,7 @@ func (c *tcpConn) Close() error {
 
 func (c *tcpConn) sendTCP(flags uint8, seq, ack uint32, data []byte) error {
 	seg := buildTCP(c.src, c.dst, c.srcPort, c.dstPort, flags, seq, ack, data)
-	pkt := buildIPv6(c.src, c.dst, seg)
+	pkt := buildIPv6Proto(c.src, c.dst, protoTCP, seg)
 	_, err := c.rw.Write(pkt)
 	return err
 }
@@ -383,6 +475,9 @@ const (
 	tcpFlagSYN = 0x02
 	tcpFlagRST = 0x04
 	tcpFlagACK = 0x10
+
+	protoTCP = 6
+	protoUDP = 17
 )
 
 func buildTCP(src, dst []byte, srcPort, dstPort uint16, flags uint8, seq, ack uint32, data []byte) []byte {
@@ -395,28 +490,43 @@ func buildTCP(src, dst []byte, srcPort, dstPort uint16, flags uint8, seq, ack ui
 	hdr[13] = flags
 	binary.BigEndian.PutUint16(hdr[14:16], 65535)
 	seg := append(hdr, data...)
-	cs := tcpChecksum(src, dst, seg)
+	cs := pseudoChecksum(src, dst, seg, protoTCP)
 	binary.BigEndian.PutUint16(seg[16:18], cs)
 	return seg
 }
 
-func buildIPv6(src, dst []byte, payload []byte) []byte {
+func buildUDP(src, dst []byte, srcPort, dstPort uint16, data []byte) []byte {
+	hdr := make([]byte, 8)
+	binary.BigEndian.PutUint16(hdr[0:2], srcPort)
+	binary.BigEndian.PutUint16(hdr[2:4], dstPort)
+	binary.BigEndian.PutUint16(hdr[4:6], uint16(8+len(data)))
+	seg := append(hdr, data...)
+	// UDP checksum is mandatory under IPv6 (RFC 8200), unlike IPv4.
+	cs := pseudoChecksum(src, dst, seg, protoUDP)
+	if cs == 0 {
+		cs = 0xffff
+	}
+	binary.BigEndian.PutUint16(seg[6:8], cs)
+	return seg
+}
+
+func buildIPv6Proto(src, dst []byte, proto byte, payload []byte) []byte {
 	hdr := make([]byte, 40)
 	hdr[0] = 0x60
 	binary.BigEndian.PutUint16(hdr[4:6], uint16(len(payload)))
-	hdr[6] = 6
+	hdr[6] = proto
 	hdr[7] = 64
 	copy(hdr[8:24], src)
 	copy(hdr[24:40], dst)
 	return append(hdr, payload...)
 }
 
-func tcpChecksum(src, dst, seg []byte) uint16 {
+func pseudoChecksum(src, dst, seg []byte, proto byte) uint16 {
 	pseudo := make([]byte, 40)
 	copy(pseudo[0:16], src)
 	copy(pseudo[16:32], dst)
 	binary.BigEndian.PutUint32(pseudo[32:36], uint32(len(seg)))
-	pseudo[39] = 6
+	pseudo[39] = proto
 	data := append(pseudo, seg...)
 	var sum uint32
 	for i := 0; i+1 < len(data); i += 2 {
@@ -430,6 +540,67 @@ func tcpChecksum(src, dst, seg []byte) uint16 {
 	}
 	return ^uint16(sum)
 }
+
+// ── UDP connection ────────────────────────────────────────────────────────────
+
+type udpConn struct {
+	src, dst         []byte
+	srcPort, dstPort uint16
+	rw               io.Writer
+	recvCh           chan []byte
+	mux              *packetMux
+	closed           atomic.Bool
+	once             sync.Once
+}
+
+func (c *udpConn) Write(data []byte) (int, error) {
+	if c.closed.Load() {
+		return 0, fmt.Errorf("closed")
+	}
+	pkt := buildIPv6Proto(c.src, c.dst, protoUDP, buildUDP(c.src, c.dst, c.srcPort, c.dstPort, data))
+	if _, err := c.rw.Write(pkt); err != nil {
+		return 0, err
+	}
+	return len(data), nil
+}
+
+func (c *udpConn) Read(buf []byte) (int, error) {
+	for {
+		if c.closed.Load() {
+			return 0, io.EOF
+		}
+		select {
+		case payload, ok := <-c.recvCh:
+			if !ok {
+				return 0, io.EOF
+			}
+			n := copy(buf, payload)
+			return n, nil
+		case <-time.After(200 * time.Millisecond):
+			// Just a periodic wakeup to re-check c.closed; not an error.
+		}
+	}
+}
+
+func (c *udpConn) Close() error {
+	c.once.Do(func() {
+		c.closed.Store(true)
+		if c.mux != nil {
+			c.mux.unregisterUDP(c.srcPort)
+		}
+	})
+	return nil
+}
+
+// YggUDPConn ───────────────────────────────────────────────────────────────────
+
+type YggUDPConn struct {
+	conn *udpConn
+}
+
+func (c *YggUDPConn) Read(buf []byte) (int, error)  { return c.conn.Read(buf) }
+func (c *YggUDPConn) Write(buf []byte) (int, error) { return c.conn.Write(buf) }
+func (c *YggUDPConn) Close() error                  { return c.conn.Close() }
 
 // ── YggConn ───────────────────────────────────────────────────────────────────
 
