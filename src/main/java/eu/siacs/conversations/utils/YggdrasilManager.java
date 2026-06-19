@@ -4,6 +4,7 @@ import android.content.Context;
 import android.util.Log;
 import eu.siacs.conversations.ui.YggdrasilPeersActivity;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 import java.io.IOException;
