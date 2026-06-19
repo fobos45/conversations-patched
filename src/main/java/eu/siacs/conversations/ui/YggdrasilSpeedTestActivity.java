@@ -289,11 +289,12 @@ public class YggdrasilSpeedTestActivity extends AppCompatActivity {
                 final long elapsed = System.nanoTime() - startNs;
                 final double mbps = (totalBytes * 8.0) / (elapsed / 1e9) / 1_000_000.0;
                 final int progress = (int) Math.min(50, totalBytes * 50L / DOWNLOAD_CAP_BYTES);
+                final long bytesSnap = totalBytes;
                 post(() -> {
                     progressBar.setProgress(progress);
                     speedometer.setSpeed((float) mbps);
                     setStatus(String.format(Locale.ROOT,
-                            "↓ %.2f Мбит/с (%s)", mbps, humanBytes(totalBytes)));
+                            "↓ %.2f Мбит/с (%s)", mbps, humanBytes(bytesSnap)));
                 });
             }
         } finally {
@@ -329,8 +330,9 @@ public class YggdrasilSpeedTestActivity extends AppCompatActivity {
                 sent += toSend;
                 final long elapsed = System.nanoTime() - startNs;
                 final double mbps = (sent * 8.0) / (elapsed / 1e9) / 1_000_000.0;
+                final long sentSnap = sent;
                 post(() -> setStatus(String.format(Locale.ROOT,
-                        "↑ %.2f Мбит/с (%s)", mbps, humanBytes(sent))));
+                        "↑ %.2f Мбит/с (%s)", mbps, humanBytes(sentSnap))));
             }
             out.flush();
         } finally {
