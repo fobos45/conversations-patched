@@ -263,87 +263,218 @@ public class YggdrasilSpeedTestActivity extends AppCompatActivity {
         running.set(false);
     }
 
+    // ── Timing constants ──────────────────────────────────────────────────────
+
+    /** Warmup period: data transferred during this time is discarded. */
+    private static final long WARMUP_NS  = 2_000_000_000L;  // 2 s
+    /** Measurement window after warmup. */
+    private static final long MEASURE_NS = 8_000_000_000L;  // 8 s
+    /** Chunk size for both download read buffer and chunked upload writes. */
+    private static final int  CHUNK      = 8192;             // 8 KB
+
+    // ── Measurement methods ───────────────────────────────────────────────────
+
     private double measureDownload(final String rawUrl) throws Exception {
+        android.util.Log.i(TAG, "DL start url=" + rawUrl);
+
         final Proxy proxy = new Proxy(Proxy.Type.SOCKS,
                 new InetSocketAddress("127.0.0.1", YggdrasilManager.SOCKS_PORT));
         final URL url = new URL(rawUrl);
         final HttpURLConnection conn = (HttpURLConnection) url.openConnection(proxy);
         conn.setConnectTimeout(15_000);
-        conn.setReadTimeout(30_000);
+        conn.setReadTimeout((int) ((WARMUP_NS + MEASURE_NS) / 1_000_000L + 10_000));
         conn.setRequestMethod("GET");
         conn.setRequestProperty("Cache-Control", "no-cache");
 
+        final long t0 = System.nanoTime();
         final int code = conn.getResponseCode();
+        final long connectMs = (System.nanoTime() - t0) / 1_000_000L;
+        final long contentLength = conn.getContentLengthLong();
+        android.util.Log.i(TAG, String.format(
+                "DL connected  http=%d  connect=%dms  content-length=%d",
+                code, connectMs, contentLength));
         if (code != 200) throw new IOException("HTTP " + code);
 
-        final byte[] buf = new byte[65536];
-        long totalBytes = 0;
-        final long startNs = System.nanoTime();
+        final byte[] buf = new byte[CHUNK];
+        long warmupBytes = 0;
+        long measureBytes = 0;
+        boolean warmupDone = false;
+        long measureStartNs = 0;
+        long lastLogNs = System.nanoTime();
 
         try (final InputStream in = conn.getInputStream()) {
             int n;
-            while (running.get()
-                    && totalBytes < DOWNLOAD_CAP_BYTES
-                    && (n = in.read(buf)) != -1) {
-                totalBytes += n;
-                final long elapsed = System.nanoTime() - startNs;
-                final double mbps = (totalBytes * 8.0) / (elapsed / 1e9) / 1_000_000.0;
-                final int progress = (int) Math.min(50, totalBytes * 50L / DOWNLOAD_CAP_BYTES);
-                final long bytesSnap = totalBytes;
-                post(() -> {
-                    progressBar.setProgress(progress);
-                    speedometer.setSpeed((float) mbps);
-                    setStatus(String.format(Locale.ROOT,
-                            "↓ %.2f Мбит/с (%s)", mbps, humanBytes(bytesSnap)));
-                });
+            while (running.get() && (n = in.read(buf)) != -1) {
+                final long now = System.nanoTime();
+
+                if (!warmupDone) {
+                    warmupBytes += n;
+                    if (now - t0 >= WARMUP_NS) {
+                        warmupDone = true;
+                        measureStartNs = now;
+                        android.util.Log.i(TAG, "DL warmup done  discarded="
+                                + humanBytes(warmupBytes));
+                    }
+                    post(() -> setStatus("↓ прогрев…"));
+                } else {
+                    measureBytes += n;
+                    final long elapsed = now - measureStartNs;
+                    final double mbps = measureBytes * 8.0 / (elapsed / 1e9) / 1_000_000.0;
+                    final long bytesSnap = measureBytes;
+
+                    // Log every second
+                    if (now - lastLogNs >= 1_000_000_000L) {
+                        android.util.Log.d(TAG, String.format(
+                                "DL %.2f Mbps  measure=%s  t=%.1fs",
+                                mbps, humanBytes(bytesSnap), elapsed / 1e9));
+                        lastLogNs = now;
+                    }
+
+                    final int pct = (int) Math.min(50,
+                            elapsed * 50L / MEASURE_NS);
+                    post(() -> {
+                        progressBar.setProgress(pct);
+                        speedometer.setSpeed((float) mbps);
+                        setStatus(String.format(Locale.ROOT,
+                                "↓ %.2f Мбит/с (%s)", mbps, humanBytes(bytesSnap)));
+                    });
+
+                    if (elapsed >= MEASURE_NS) {
+                        android.util.Log.i(TAG, "DL measure window complete");
+                        break;
+                    }
+                }
             }
         } finally {
             conn.disconnect();
         }
 
-        final long elapsedNs = System.nanoTime() - startNs;
-        return (totalBytes * 8.0) / (elapsedNs / 1e9) / 1_000_000.0;
+        if (!warmupDone) {
+            // Server sent less data than we expected during warmup: measure from start
+            android.util.Log.w(TAG, "DL: stream ended before warmup finished"
+                    + " (total=" + humanBytes(warmupBytes)
+                    + "). Consider using a URL with a larger ckSize.");
+            measureBytes = warmupBytes;
+            measureStartNs = t0;
+        }
+
+        final long elapsedNs = warmupDone
+                ? Math.min(System.nanoTime() - measureStartNs, MEASURE_NS + 500_000_000L)
+                : System.nanoTime() - t0;
+        final double result = measureBytes > 0 && elapsedNs > 0
+                ? (measureBytes * 8.0) / (elapsedNs / 1e9) / 1_000_000.0 : 0;
+        android.util.Log.i(TAG, String.format(
+                "DL result  bytes=%s  time=%.2fs  speed=%.2f Mbps",
+                humanBytes(measureBytes), elapsedNs / 1e9, result));
+        return result;
     }
 
     private double measureUpload(final String rawUrl) throws Exception {
-        // Upload to the same host; librespeed servers accept POST /speedtest/empty.php
-        final String uploadUrl = rawUrl.replaceFirst("/garbage\\.php.*$", "/empty.php");
+        final String uploadUrl = rawUrl.contains("garbage.php")
+                ? rawUrl.replaceFirst("/garbage\\.php.*$", "/empty.php")
+                : rawUrl;
+        android.util.Log.i(TAG, "UL start url=" + uploadUrl);
+
         final Proxy proxy = new Proxy(Proxy.Type.SOCKS,
                 new InetSocketAddress("127.0.0.1", YggdrasilManager.SOCKS_PORT));
         final URL url = new URL(uploadUrl);
         final HttpURLConnection conn = (HttpURLConnection) url.openConnection(proxy);
         conn.setConnectTimeout(15_000);
-        conn.setReadTimeout(30_000);
+        conn.setReadTimeout((int) ((WARMUP_NS + MEASURE_NS) / 1_000_000L + 30_000));
         conn.setRequestMethod("POST");
         conn.setDoOutput(true);
-        conn.setFixedLengthStreamingMode(UPLOAD_BYTES);
+        // Chunked streaming mode: limits OS-level buffering to ~CHUNK bytes per
+        // HTTP chunk, so write() blocks when the TCP send buffer fills — giving
+        // accurate backpressure-driven throughput measurement.
+        conn.setChunkedStreamingMode(CHUNK);
         conn.setRequestProperty("Content-Type", "application/octet-stream");
+        conn.setRequestProperty("Cache-Control", "no-cache");
 
-        final byte[] chunk = new byte[65536];
-        long sent = 0;
-        final long startNs = System.nanoTime();
+        final byte[] chunk = new byte[CHUNK];
+        long warmupBytes = 0;
+        long measureBytes = 0;
+        boolean warmupDone = false;
+        long measureStartNs = 0;
+        long lastLogNs = 0;
+        final long t0 = System.nanoTime();
 
+        android.util.Log.i(TAG, "UL opening output stream…");
         try (final OutputStream out = conn.getOutputStream()) {
-            while (running.get() && sent < UPLOAD_BYTES) {
-                final int toSend = (int) Math.min(chunk.length, UPLOAD_BYTES - sent);
-                out.write(chunk, 0, toSend);
-                sent += toSend;
-                final long elapsed = System.nanoTime() - startNs;
-                final double mbps = (sent * 8.0) / (elapsed / 1e9) / 1_000_000.0;
-                final long sentSnap = sent;
-                post(() -> setStatus(String.format(Locale.ROOT,
-                        "↑ %.2f Мбит/с (%s)", mbps, humanBytes(sentSnap))));
+            // First write establishes the SOCKS+TCP connection; log when it unblocks.
+            out.write(chunk);
+            warmupBytes += CHUNK;
+            final long firstWriteMs = (System.nanoTime() - t0) / 1_000_000L;
+            android.util.Log.i(TAG, "UL first write unblocked  connect=" + firstWriteMs + "ms");
+            lastLogNs = System.nanoTime();
+
+            while (running.get()) {
+                out.write(chunk);
+                final long now = System.nanoTime();
+
+                if (!warmupDone) {
+                    warmupBytes += CHUNK;
+                    if (now - t0 >= WARMUP_NS) {
+                        warmupDone = true;
+                        measureStartNs = now;
+                        android.util.Log.i(TAG, "UL warmup done  discarded="
+                                + humanBytes(warmupBytes));
+                    }
+                    post(() -> setStatus("↑ прогрев…"));
+                } else {
+                    measureBytes += CHUNK;
+                    final long elapsed = now - measureStartNs;
+                    final double mbps = measureBytes * 8.0 / (elapsed / 1e9) / 1_000_000.0;
+
+                    if (now - lastLogNs >= 1_000_000_000L) {
+                        android.util.Log.d(TAG, String.format(
+                                "UL %.2f Mbps  measure=%s  t=%.1fs",
+                                mbps, humanBytes(measureBytes), elapsed / 1e9));
+                        lastLogNs = now;
+                    }
+
+                    final long sentSnap = measureBytes;
+                    final int pct = (int) Math.min(100, 50 + elapsed * 50L / MEASURE_NS);
+                    post(() -> {
+                        progressBar.setProgress(pct);
+                        setStatus(String.format(Locale.ROOT,
+                                "↑ %.2f Мбит/с (%s)", mbps, humanBytes(sentSnap)));
+                    });
+
+                    if (elapsed >= MEASURE_NS) {
+                        android.util.Log.i(TAG, "UL measure window complete");
+                        break;
+                    }
+                }
             }
             out.flush();
-        } finally {
-            conn.disconnect();
         }
 
-        final long elapsedNs = System.nanoTime() - startNs;
-        return (sent * 8.0) / (elapsedNs / 1e9) / 1_000_000.0;
+        post(() -> setStatus("↑ ожидание ответа сервера…"));
+        final int respCode = conn.getResponseCode();
+        conn.disconnect();
+        android.util.Log.i(TAG, "UL server response  http=" + respCode);
+
+        if (!warmupDone) {
+            android.util.Log.w(TAG, "UL: stream ended before warmup (bytes="
+                    + humanBytes(warmupBytes)
+                    + "). Server may not support POST upload.");
+            measureBytes = warmupBytes;
+            measureStartNs = t0;
+        }
+
+        final long elapsedNs = Math.min(
+                System.nanoTime() - measureStartNs, MEASURE_NS + 500_000_000L);
+        final double result = measureBytes > 0 && elapsedNs > 0
+                ? (measureBytes * 8.0) / (elapsedNs / 1e9) / 1_000_000.0 : 0;
+        android.util.Log.i(TAG, String.format(
+                "UL result  bytes=%s  time=%.2fs  speed=%.2f Mbps  http=%d",
+                humanBytes(measureBytes), elapsedNs / 1e9, result, respCode));
+        return result;
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private static final String TAG = "YggSpeedTest";
 
     private void setStatus(final String s) { statusText.setText(s); }
 
