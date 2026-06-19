@@ -297,8 +297,12 @@
             android:name=".ui.YggdrasilPeersActivity"
             android:exported="false"
             android:label="@string/pref_yggdrasil_peers"
-            android:theme="@style/Theme.Conversations3"
             android:parentActivityName=".ui.activity.SettingsActivity" />
+        <activity
+            android:name=".ui.YggdrasilSpeedTestActivity"
+            android:exported="false"
+            android:label="Тест скорости Yggdrasil"
+            android:parentActivityName=".ui.YggdrasilPeersActivity" />
         <activity
             android:name=".ui.ChooseContactActivity"
             android:label="@string/title_activity_choose_contact" />

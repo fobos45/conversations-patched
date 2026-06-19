@@ -612,19 +612,32 @@ func (c *YggConn) Read(buf []byte) (int, error)  { return c.conn.Read(buf) }
 func (c *YggConn) Write(buf []byte) (int, error) { return c.conn.Write(buf) }
 func (c *YggConn) Close() error                  { return c.conn.Close() }
 
-// GetPeersJSON returns JSON array of peers with their online status.
+// GetPeersJSON returns JSON array of peers with status, latency and traffic.
 func GetPeersJSON() string {
 	if !running.Load() || yggCore == nil {
 		return "[]"
 	}
 	type peerInfo struct {
-		URI string `json:"uri"`
-		Up  bool   `json:"up"`
+		URI       string `json:"uri"`
+		Up        bool   `json:"up"`
+		LatencyMs int64  `json:"latency_ms"` // -1 when not yet measured
+		RXBytes   uint64 `json:"rx_bytes"`
+		TXBytes   uint64 `json:"tx_bytes"`
 	}
 	peers := yggCore.GetPeers()
 	result := make([]peerInfo, 0, len(peers))
 	for _, p := range peers {
-		result = append(result, peerInfo{URI: p.URI, Up: p.Up})
+		latMs := int64(-1)
+		if p.Latency > 0 {
+			latMs = p.Latency.Milliseconds()
+		}
+		result = append(result, peerInfo{
+			URI:       p.URI,
+			Up:        p.Up,
+			LatencyMs: latMs,
+			RXBytes:   p.RXBytes,
+			TXBytes:   p.TXBytes,
+		})
 	}
 	data, err := json.Marshal(result)
 	if err != nil {

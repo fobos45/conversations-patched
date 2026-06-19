@@ -1,45 +1,36 @@
-# Патч v2: звонки через встроенный Yggdrasil — fix ICE gathering never completes
+# Патч v3: кнопка теста скорости в окне пиров
 
-## Что было не так (v1 → v2)
+## Что добавлено
 
-В v1 relay-кандидат успешно собирался через TURN-сервер в Yggdrasil, но
-`onIceGatheringChange(COMPLETE)` так и не приходил — gathering висел вечно.
-Без COMPLETE WebRTC не запускает финальный DTLS-хендшейк, звонок застревает
-в "Соединение" навсегда.
+### Latency в строке пира
+Каждая строка в окне «Пиры Yggdrasil» теперь показывает измеренную
+задержку под именем пира (например «23 мс»). Данные берутся напрямую
+из ядра Yggdrasil — обновляются каждые 3 секунды вместе со статусом.
+Цвет точки статуса: зелёный = online, оранжевый = включён но ещё не
+подключился, серый = отключён.
 
-Причина: XEP-0215 возвращает два ICE-сервера с одним Yggdrasil-адресом:
-`stun:[200:f28e:...]` и `turn:[200:f28e:...]`. Оба переписывались в один
-и тот же bridge (`127.0.0.1:38029`). WebRTC открывал ДВА внутренних ICE-
-сокета — один для STUN, один для TURN — и оба писали на один порт с разных
-ephemeral-портов. Поле `lastWebRtcEndpoint` перезаписывалось последним
-пишущим, ответы уходили не на тот сокет. TURN-сокет получал ответ,
-STUN-сокет — нет, gathering никогда не считался завершённым.
+### Кнопка спидометра
+В каждой строке появилась кнопка с иконкой компаса/спидометра. Нажатие
+открывает «Тест скорости Yggdrasil» — новое Activity.
 
-## Что исправлено
+### YggdrasilSpeedTestActivity
+Экран теста скорости:
+- Анимированный шкальный индикатор (зелёный→жёлтый→красный, 0–100 Мбит/с)
+- Тест загрузки и отдачи через SOCKS5-прокси Yggdrasil (127.0.0.1:1080)
+- Показывает скорость в реальном времени во время теста
+- Редактируемый URL тестового сервера (по умолчанию — librespeed на
+  публичной ноде Yggdrasil); значение сохраняется между запусками
+- Кнопка «Отмена» останавливает тест в любой момент
 
-**YggdrasilCallRelay.java** — два изменения:
+URL по умолчанию (`302:db60:d602:f0ea:216c:1539:9c2a:fbf9`) — публично
+известная librespeed-нода в сети Yggdrasil. Если она недоступна, замените
+URL на адрес любого librespeed-сервера в вашей Yggdrasil-сети.
 
-1. `stun`/`stuns` серверы теперь **исключаются** из списка полностью
-   (не перезаписываются, а просто не добавляются в результат). При
-   relay-only политике ICE они дают только srflx-кандидатов, которые
-   сразу выбрасываются — они бесполезны и только мешали.
-
-2. Вместо `lastWebRtcEndpoint` (одна переменная на всех) добавлен роутинг
-   по STUN Transaction ID: для каждого исходящего STUN/TURN Request/
-   Indication в `txMap` запоминается пара TxID → WebRTC endpoint. Ответ
-   (Success/Error response) по TxID находит нужный сокет. Для не-STUN
-   фреймов (TURN ChannelData) используется fallback на `lastWebRtcEndpoint`.
-   Это делает bridge корректным даже если в будущем несколько сокетов снова
-   окажутся на одном порте.
-
-## Файлы в этом архиве
-
-- `yggmobile/yggmobile.go` — добавлен UDP (`DialUDP`, `YggUDPConn`)
-- `src/.../utils/YggdrasilCallRelay.java` — основной relay (v2, исправлен)
-- `src/.../utils/YggdrasilManager.java` — shutdownAll при выключении Yggdrasil
-- `src/.../xmpp/jingle/JingleRtpConnection.java` — вызов relay + relay-only ICE
-
-## Сборка
-
-Распакуйте поверх рабочей копии → GitHub Desktop покажет 3 изменённых + 1
-новый файл → commit → push → GitHub Actions соберёт APK автоматически.
+## Изменённые/новые файлы
+- `yggmobile/yggmobile.go` — добавлены latency_ms, rx_bytes, tx_bytes в GetPeersJSON
+- `src/main/AndroidManifest.xml` — регистрация YggdrasilSpeedTestActivity
+- `src/.../ui/YggdrasilPeersActivity.java` — latency-бейдж + кнопка спидометра
+- `src/.../ui/YggdrasilSpeedTestActivity.java` — новый файл, экран теста
+- `src/.../utils/YggdrasilManager.java` — новый метод getPeerStats()
+- `src/.../utils/YggdrasilCallRelay.java` — без изменений (v2, перенесён)
+- `src/.../xmpp/jingle/JingleRtpConnection.java` — без изменений (v2, перенесён)
