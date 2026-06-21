@@ -6,6 +6,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -32,6 +33,8 @@ import eu.siacs.conversations.R;
 import eu.siacs.conversations.utils.YggdrasilManager;
 
 public class YggdrasilPeersActivity extends AppCompatActivity {
+
+    private static final String TAG = "YggdrasilPeersActivity";
 
     public static final String PREFS_NAME = "yggdrasil_peers";
     public static final String KEY_PEERS  = "peers_json";
@@ -220,8 +223,10 @@ public class YggdrasilPeersActivity extends AppCompatActivity {
                     return;
                 }
                 if (existing == null) {
+                    Log.i(TAG, "UI: add peer uri=" + uri);
                     adapter.addPeer(new PeerItem(uri, true));
                 } else {
+                    Log.i(TAG, "UI: edit peer uri=" + existing.uri + " -> " + uri);
                     adapter.editPeer(position, uri);
                 }
                 persist();
@@ -230,6 +235,7 @@ public class YggdrasilPeersActivity extends AppCompatActivity {
 
         if (existing != null) {
             b.setNeutralButton(R.string.ygg_delete_peer, (d, w) -> {
+                Log.i(TAG, "UI: delete peer uri=" + existing.uri);
                 adapter.removePeer(position);
                 persist();
             });
@@ -238,6 +244,8 @@ public class YggdrasilPeersActivity extends AppCompatActivity {
     }
 
     void persist() {
+        Log.i(TAG, "UI: persist() -> saving " + adapter.items.size()
+                + " peer(s), requesting Yggdrasil restart");
         savePeers(this, adapter.items);
         YggdrasilManager.getInstance().updatePeers(this);
     }
@@ -278,6 +286,7 @@ public class YggdrasilPeersActivity extends AppCompatActivity {
 
         final List<PeerItem> items;
         final Context ctx;
+        final java.util.Map<String, Boolean> lastOnline = new java.util.HashMap<>();
 
         PeerAdapter(List<PeerItem> items, Context ctx) {
             this.items = new ArrayList<>(items);
@@ -285,7 +294,16 @@ public class YggdrasilPeersActivity extends AppCompatActivity {
         }
 
         void updateStatuses(java.util.Set<String> online) {
-            for (PeerItem p : items) p.online = online.contains(p.uri);
+            for (PeerItem p : items) {
+                boolean nowOnline = online.contains(p.uri);
+                Boolean prev = lastOnline.get(p.uri);
+                if (prev == null || prev != nowOnline) {
+                    Log.i(TAG, "status: peer " + p.uri + " -> "
+                            + (nowOnline ? "ONLINE" : "OFFLINE"));
+                    lastOnline.put(p.uri, nowOnline);
+                }
+                p.online = nowOnline;
+            }
             notifyDataSetChanged();
         }
 
@@ -364,6 +382,8 @@ public class YggdrasilPeersActivity extends AppCompatActivity {
             d.setColor(item.online ? 0xFF00C853 : 0xFF757575);
 
             h.sw.setOnCheckedChangeListener((btn, checked) -> {
+                Log.i(TAG, "UI: " + (checked ? "enable" : "disable")
+                        + " peer uri=" + item.uri);
                 item.enabled = checked;
                 persist();
             });

@@ -1,6 +1,10 @@
 package eu.siacs.conversations.utils;
 
 import android.content.Context;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.net.NetworkRequest;
 import android.util.Log;
 import eu.siacs.conversations.ui.YggdrasilPeersActivity;
 import java.util.HashSet;
@@ -50,6 +54,8 @@ public class YggdrasilManager {
     private ExecutorService executor;
     private String lastError = "";
     private android.content.Context appContext;
+    private ConnectivityManager connectivityManager;
+    private ConnectivityManager.NetworkCallback networkCallback;
 
     private YggdrasilManager() {}
 
@@ -69,12 +75,13 @@ public class YggdrasilManager {
             List<String> peerList = YggdrasilPeersActivity.getEnabledPeers(appContext);
             if (peerList.isEmpty()) peerList = DEFAULT_PEERS;
             String peers = String.join("\n", peerList);
-            Log.i(TAG, "Starting Yggdrasil node...");
+            Log.i(TAG, "startInternal: starting Yggdrasil node with " + peerList.size() + " peer(s):");
+            for (String p : peerList) Log.i(TAG, "startInternal:   - " + p);
             yggmobile.Yggmobile.start(peers);
             // Give gVisor stack a moment to initialize
             Thread.sleep(500);
             String addr = yggmobile.Yggmobile.getAddress();
-            Log.i(TAG, "Yggdrasil address: " + addr);
+            Log.i(TAG, "startInternal: Yggdrasil address: " + addr);
             lastError = "";
 
             // Start pure-Java SOCKS5 proxy
@@ -84,8 +91,9 @@ public class YggdrasilManager {
             InetAddress loopback = InetAddress.getByName("127.0.0.1");
             serverSocket.bind(new InetSocketAddress(loopback, SOCKS_PORT));
             running.set(true);
-            Log.i(TAG, "SOCKS5 proxy on 127.0.0.1:" + SOCKS_PORT);
+            Log.i(TAG, "startInternal: SOCKS5 proxy on 127.0.0.1:" + SOCKS_PORT);
             executor.submit(this::acceptLoop);
+            registerNetworkCallback(appContext);
 
         } catch (Throwable e) {
             StringBuilder sb = new StringBuilder();
@@ -97,7 +105,7 @@ public class YggdrasilManager {
                 if (t != null) sb.append("caused by:\n");
             }
             lastError = sb.toString();
-            Log.e(TAG, "Failed: " + lastError);
+            Log.e(TAG, "startInternal: failed: " + lastError);
         }
     }
 
@@ -216,7 +224,13 @@ public class YggdrasilManager {
     }
 
     public void updatePeers(Context context) {
-        if (!isRunning()) return;
+        if (!isRunning()) {
+            Log.i(TAG, "updatePeers: not running, ignoring");
+            return;
+        }
+        List<String> enabled = YggdrasilPeersActivity.getEnabledPeers(context);
+        Log.i(TAG, "updatePeers: restarting node with " + enabled.size() + " enabled peer(s):");
+        for (String p : enabled) Log.i(TAG, "updatePeers:   - " + p);
         // Restart with new peer list
         stop();
         start(context);
@@ -224,11 +238,14 @@ public class YggdrasilManager {
 
     public synchronized void stop() {
         if (!running.get()) return;
+        Log.i(TAG, "stop: stopping Yggdrasil node and SOCKS proxy");
         running.set(false);
+        unregisterNetworkCallback();
         try { if (serverSocket != null) serverSocket.close(); } catch (IOException ignored) {}
         if (executor != null) executor.shutdownNow();
         YggdrasilCallRelay.getInstance().shutdownAll();
         yggmobile.Yggmobile.stop();
+        Log.i(TAG, "stop: stopped");
     }
 
     public boolean isRunning() { return running.get(); }
@@ -252,6 +269,98 @@ public class YggdrasilManager {
             int n = in.read(buf, off, buf.length - off);
             if (n == -1) throw new IOException("EOF");
             off += n;
+        }
+    }
+
+    // ── Network change diagnostics ───────────────────────────────────────────
+    //
+    // Logs WiFi <-> mobile transitions and dumps the live Yggdrasil peer
+    // table right at the moment of transition, so adb logcat shows exactly
+    // how peer links react (drop / reconnect) when the underlying network
+    // path changes mid-session.
+
+    private void registerNetworkCallback(Context context) {
+        if (context == null) return;
+        try {
+            connectivityManager =
+                    (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+            if (connectivityManager == null) {
+                Log.w(TAG, "[net] ConnectivityManager unavailable, skipping network logging");
+                return;
+            }
+            networkCallback = new ConnectivityManager.NetworkCallback() {
+                @Override
+                public void onAvailable(Network network) {
+                    Log.i(TAG, "[net] onAvailable network=" + network);
+                    logPeerSnapshot("net-available");
+                }
+
+                @Override
+                public void onLost(Network network) {
+                    Log.w(TAG, "[net] onLost network=" + network);
+                    logPeerSnapshot("net-lost");
+                }
+
+                @Override
+                public void onCapabilitiesChanged(
+                        final Network network, final NetworkCapabilities caps) {
+                    final String transport = describeTransport(caps);
+                    final boolean validated =
+                            caps != null
+                                    && caps.hasCapability(
+                                            NetworkCapabilities.NET_CAPABILITY_VALIDATED);
+                    Log.i(TAG, "[net] onCapabilitiesChanged network=" + network
+                            + " transport=" + transport + " validated=" + validated);
+                    logPeerSnapshot("net-capabilities-changed(" + transport + ")");
+                }
+
+                @Override
+                public void onUnavailable() {
+                    Log.w(TAG, "[net] onUnavailable");
+                }
+            };
+            final NetworkRequest request = new NetworkRequest.Builder()
+                    .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                    .build();
+            connectivityManager.registerNetworkCallback(request, networkCallback);
+            Log.i(TAG, "[net] network callback registered");
+        } catch (final Exception e) {
+            Log.w(TAG, "[net] failed to register network callback: " + e.getMessage());
+        }
+    }
+
+    private void unregisterNetworkCallback() {
+        if (connectivityManager != null && networkCallback != null) {
+            try {
+                connectivityManager.unregisterNetworkCallback(networkCallback);
+                Log.i(TAG, "[net] network callback unregistered");
+            } catch (final Exception ignored) {
+            }
+        }
+        networkCallback = null;
+    }
+
+    private static String describeTransport(final NetworkCapabilities caps) {
+        if (caps == null) return "unknown";
+        final StringBuilder sb = new StringBuilder();
+        if (caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) sb.append("WIFI ");
+        if (caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) sb.append("CELLULAR ");
+        if (caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)) sb.append("ETHERNET ");
+        if (caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) sb.append("VPN ");
+        return sb.length() == 0 ? "OTHER" : sb.toString().trim();
+    }
+
+    /** Dumps the current Yggdrasil peer table (uri/up) to logcat, tagged with a reason. */
+    private void logPeerSnapshot(final String reason) {
+        if (!isRunning()) {
+            Log.i(TAG, "[net] peer snapshot (" + reason + "): node not running");
+            return;
+        }
+        try {
+            final String json = yggmobile.Yggmobile.getPeersJSON();
+            Log.i(TAG, "[net] peer snapshot (" + reason + "): " + json);
+        } catch (final Exception e) {
+            Log.w(TAG, "[net] could not get peer snapshot: " + e.getMessage());
         }
     }
 }
