@@ -1,36 +1,24 @@
-# Патч v3: кнопка теста скорости в окне пиров
+# Откат speedtest, фикс звонков сохранён
 
-## Что добавлено
+## Что в этом архиве
 
-### Latency в строке пира
-Каждая строка в окне «Пиры Yggdrasil» теперь показывает измеренную
-задержку под именем пира (например «23 мс»). Данные берутся напрямую
-из ядра Yggdrasil — обновляются каждые 3 секунды вместе со статусом.
-Цвет точки статуса: зелёный = online, оранжевый = включён но ещё не
-подключился, серый = отключён.
+Только рабочий фикс звонков через embedded Yggdrasil (UDP-релей для
+TURN через loopback, см. предыдущие пояснения) — всё, что касалось
+speedtest, полностью убрано:
 
-### Кнопка спидометра
-В каждой строке появилась кнопка с иконкой компаса/спидометра. Нажатие
-открывает «Тест скорости Yggdrasil» — новое Activity.
+- `YggdrasilPeersActivity.java` — возвращена ваша версия как есть
+  (add/edit/delete пиров, без latency-бейджа и кнопки спидометра)
+- `YggdrasilSpeedTestActivity.java` — удалён
+- `AndroidManifest.xml` — убрана регистрация спидтест-экрана
+- `yggmobile.go` — `GetPeersJSON` вернулась к простому `{uri, up}`,
+  UDP-поддержка (`DialUDP`/`YggUDPConn`) для звонков сохранена
+- `YggdrasilManager.java` — `getConnectedPeers()` вернулась к простой
+  версии, `getPeerStats()` убран
+- `YggdrasilCallRelay.java`, `JingleRtpConnection.java` — без изменений,
+  это фикс звонков, не связан со speedtest
 
-### YggdrasilSpeedTestActivity
-Экран теста скорости:
-- Анимированный шкальный индикатор (зелёный→жёлтый→красный, 0–100 Мбит/с)
-- Тест загрузки и отдачи через SOCKS5-прокси Yggdrasil (127.0.0.1:1080)
-- Показывает скорость в реальном времени во время теста
-- Редактируемый URL тестового сервера (по умолчанию — librespeed на
-  публичной ноде Yggdrasil); значение сохраняется между запусками
-- Кнопка «Отмена» останавливает тест в любой момент
+## Сборка
 
-URL по умолчанию (`302:db60:d602:f0ea:216c:1539:9c2a:fbf9`) — публично
-известная librespeed-нода в сети Yggdrasil. Если она недоступна, замените
-URL на адрес любого librespeed-сервера в вашей Yggdrasil-сети.
-
-## Изменённые/новые файлы
-- `yggmobile/yggmobile.go` — добавлены latency_ms, rx_bytes, tx_bytes в GetPeersJSON
-- `src/main/AndroidManifest.xml` — регистрация YggdrasilSpeedTestActivity
-- `src/.../ui/YggdrasilPeersActivity.java` — latency-бейдж + кнопка спидометра
-- `src/.../ui/YggdrasilSpeedTestActivity.java` — новый файл, экран теста
-- `src/.../utils/YggdrasilManager.java` — новый метод getPeerStats()
-- `src/.../utils/YggdrasilCallRelay.java` — без изменений (v2, перенесён)
-- `src/.../xmpp/jingle/JingleRtpConnection.java` — без изменений (v2, перенесён)
+Распакуйте поверх рабочей копии (это уберёт спидтест-файлы), закоммитьте
+и запушьте через GitHub Desktop. GitHub Desktop покажет удаление
+`YggdrasilSpeedTestActivity.java` как часть diff.

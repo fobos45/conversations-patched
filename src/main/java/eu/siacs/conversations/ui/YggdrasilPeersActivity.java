@@ -1,7 +1,6 @@
 package eu.siacs.conversations.ui;
 
 import android.content.Context;
-import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
@@ -186,14 +185,12 @@ public class YggdrasilPeersActivity extends AppCompatActivity {
         try {
             String json = yggmobile.Yggmobile.getPeersJSON();
             JSONArray arr = new JSONArray(json);
-            java.util.Map<String, long[]> stats = new java.util.HashMap<>();
+            java.util.Set<String> online = new java.util.HashSet<>();
             for (int i = 0; i < arr.length(); i++) {
                 JSONObject o = arr.getJSONObject(i);
-                boolean up = o.optBoolean("up");
-                long lat = o.optLong("latency_ms", -1L);
-                stats.put(o.getString("uri"), new long[]{up ? 1L : 0L, lat});
+                if (o.optBoolean("up")) online.add(o.getString("uri"));
             }
-            adapter.updateStatuses(stats);
+            adapter.updateStatuses(online);
         } catch (Exception ignored) {}
     }
 
@@ -261,7 +258,6 @@ public class YggdrasilPeersActivity extends AppCompatActivity {
         public String uri;
         public boolean enabled;
         public boolean online;
-        public long latencyMs = -1; // -1 = not yet measured
 
         public PeerItem(String uri, boolean enabled) {
             this.uri = uri;
@@ -273,12 +269,6 @@ public class YggdrasilPeersActivity extends AppCompatActivity {
             int q = s.indexOf('?');
             if (q > 0) s = s.substring(0, q);
             return s;
-        }
-
-        /** "23 мс" when connected and measured, empty string otherwise. */
-        public String latencyLabel() {
-            if (!online || latencyMs < 0) return "";
-            return latencyMs + " мс";
         }
     }
 
@@ -294,17 +284,8 @@ public class YggdrasilPeersActivity extends AppCompatActivity {
             this.ctx = ctx;
         }
 
-        void updateStatuses(java.util.Map<String, long[]> stats) {
-            for (PeerItem p : items) {
-                long[] s = stats.get(p.uri);
-                if (s != null) {
-                    p.online    = s[0] == 1L;
-                    p.latencyMs = s[1];
-                } else {
-                    p.online    = false;
-                    p.latencyMs = -1L;
-                }
-            }
+        void updateStatuses(java.util.Set<String> online) {
+            for (PeerItem p : items) p.online = online.contains(p.uri);
             notifyDataSetChanged();
         }
 
@@ -348,39 +329,13 @@ public class YggdrasilPeersActivity extends AppCompatActivity {
             dot.setBackground(shape);
             row.addView(dot);
 
-            // Name + latency vertical column
-            LinearLayout nameCol = new LinearLayout(ctx);
-            nameCol.setOrientation(LinearLayout.VERTICAL);
-            LinearLayout.LayoutParams nameColP = new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-            nameColP.setMarginEnd(dp(4));
-            nameCol.setLayoutParams(nameColP);
-
+            // Peer URI text
             TextView name = new TextView(ctx);
+            LinearLayout.LayoutParams nameP = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+            name.setLayoutParams(nameP);
             name.setTextSize(14);
             name.setMaxLines(2);
-            nameCol.addView(name, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT));
-
-            TextView latency = new TextView(ctx);
-            latency.setTextSize(11);
-            latency.setTextColor(0xFF888888);
-            nameCol.addView(latency, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT));
-
-            row.addView(nameCol);
-
-            // Speedometer button
-            android.widget.ImageButton speedBtn = new android.widget.ImageButton(ctx);
-            speedBtn.setImageResource(android.R.drawable.ic_menu_compass);
-            speedBtn.setBackgroundResource(android.R.drawable.btn_default);
-            LinearLayout.LayoutParams speedP = new LinearLayout.LayoutParams(dp(40), dp(40));
-            speedP.setMarginEnd(dp(4));
-            speedBtn.setLayoutParams(speedP);
-            speedBtn.setContentDescription("Тест скорости");
-            row.addView(speedBtn);
+            row.addView(name);
 
             // Edit button
             TextView editBtn = new TextView(ctx);
@@ -393,27 +348,20 @@ public class YggdrasilPeersActivity extends AppCompatActivity {
             SwitchCompat sw = new SwitchCompat(ctx);
             row.addView(sw);
 
-            return new VH(row, dot, name, latency, speedBtn, editBtn, sw);
+            return new VH(row, dot, name, editBtn, sw);
         }
 
         @Override
         public void onBindViewHolder(@NonNull VH h, int pos) {
             PeerItem item = items.get(pos);
             h.name.setText(item.displayName());
-            h.latency.setText(item.latencyLabel());
             h.sw.setOnCheckedChangeListener(null);
             h.sw.setChecked(item.enabled);
 
             // Status dot color
             android.graphics.drawable.GradientDrawable d =
                 (android.graphics.drawable.GradientDrawable) h.dot.getBackground();
-            d.setColor(item.online ? 0xFF00C853 : (item.enabled ? 0xFFFF6D00 : 0xFF757575));
-
-            h.speedBtn.setOnClickListener(v -> {
-                Intent intent = new Intent(ctx, YggdrasilSpeedTestActivity.class);
-                intent.putExtra(YggdrasilSpeedTestActivity.EXTRA_PEER_URI, item.uri);
-                ctx.startActivity(intent);
-            });
+            d.setColor(item.online ? 0xFF00C853 : 0xFF757575);
 
             h.sw.setOnCheckedChangeListener((btn, checked) -> {
                 item.enabled = checked;
@@ -428,16 +376,13 @@ public class YggdrasilPeersActivity extends AppCompatActivity {
 
         class VH extends RecyclerView.ViewHolder {
             final android.view.View dot;
-            final TextView name, latency, editBtn;
-            final android.widget.ImageButton speedBtn;
+            final TextView name, editBtn;
             final SwitchCompat sw;
             VH(android.view.View root, android.view.View dot,
-               TextView name, TextView latency,
-               android.widget.ImageButton speedBtn,
-               TextView editBtn, SwitchCompat sw) {
+               TextView name, TextView editBtn, SwitchCompat sw) {
                 super(root);
-                this.dot = dot; this.name = name; this.latency = latency;
-                this.speedBtn = speedBtn; this.editBtn = editBtn; this.sw = sw;
+                this.dot = dot; this.name = name;
+                this.editBtn = editBtn; this.sw = sw;
             }
         }
     }

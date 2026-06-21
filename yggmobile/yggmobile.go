@@ -110,14 +110,15 @@ func DialTCP(dst string, port int) (*YggConn, error) {
 	dstPort := uint16(port)
 
 	conn := &tcpConn{
-		src:     srcIP,
-		dst:     dstIP,
-		srcPort: srcPort,
-		dstPort: dstPort,
-		rw:      iprwc,
-		recvBuf: make([]byte, 0, 65535),
-		recvCh:  make(chan tcpSegment, 64),
+		src:        srcIP,
+		dst:        dstIP,
+		srcPort:    srcPort,
+		dstPort:    dstPort,
+		rw:         iprwc,
+		recvCh:     make(chan tcpSegment, 64),
+		stopReader: make(chan struct{}),
 	}
+	conn.cond = sync.NewCond(&conn.mu)
 
 	// Register with mux before handshake
 	connKey := connKey{srcPort: srcPort, dstPort: dstPort}
@@ -137,6 +138,9 @@ func DialTCP(dst string, port int) (*YggConn, error) {
 	conn.established = true
 	conn.muxKey = connKey
 	conn.mux = mux
+	conn.sendUnacked = conn.seq
+
+	go conn.backgroundReader()
 
 	return &YggConn{conn: conn}, nil
 }
@@ -176,6 +180,123 @@ func DialUDP(dst string, port int) (*YggUDPConn, error) {
 	return &YggUDPConn{conn: conn}, nil
 }
 
+// ── TCP listener (for peer-to-peer testing, no external server needed) ────────
+
+// YggListener accepts inbound TCP connections over the Yggdrasil overlay,
+// addressed to a fixed local port on this node's own Yggdrasil address.
+// There is no NAT/firewall traversal concern: any other Yggdrasil node can
+// reach this port directly via the mesh, exactly like the existing DialTCP
+// path used in reverse.
+type YggListener struct {
+	port   uint16
+	ch     chan inboundSyn
+	closed atomic.Bool
+}
+
+// ListenTCP starts listening for inbound connections on the given port.
+// Call Accept() in a loop to receive connections, and Close() when done.
+func ListenTCP(port int) (*YggListener, error) {
+	if !running.Load() || mux == nil {
+		return nil, fmt.Errorf("not running")
+	}
+	l := &YggListener{port: uint16(port), ch: make(chan inboundSyn, 8)}
+	mux.registerListener(l.port, l.ch)
+	return l, nil
+}
+
+// Accept blocks until a remote peer connects and the handshake completes.
+// Returns an error if the listener was closed or Yggdrasil was stopped.
+func (l *YggListener) Accept() (*YggConn, error) {
+	for {
+		if l.closed.Load() {
+			return nil, fmt.Errorf("listener closed")
+		}
+		if !running.Load() {
+			return nil, fmt.Errorf("yggdrasil not running")
+		}
+		select {
+		case syn := <-l.ch:
+			conn, err := l.completeHandshake(syn)
+			if err != nil {
+				continue // malformed/incomplete attempt; keep listening
+			}
+			return conn, nil
+		case <-time.After(500 * time.Millisecond):
+			// loop to re-check closed/running
+		}
+	}
+}
+
+func (l *YggListener) completeHandshake(syn inboundSyn) (*YggConn, error) {
+	srcIP := net.ParseIP(address).To16()
+	if srcIP == nil {
+		return nil, fmt.Errorf("bad local addr")
+	}
+
+	key := connKey{srcPort: l.port, dstPort: syn.remotePort}
+	recvCh := make(chan tcpSegment, 64)
+
+	conn := &tcpConn{
+		src:        srcIP,
+		dst:        syn.remoteIP,
+		srcPort:    l.port,
+		dstPort:    syn.remotePort,
+		rw:         iprwc,
+		recvCh:     recvCh,
+		stopReader: make(chan struct{}),
+	}
+	conn.cond = sync.NewCond(&conn.mu)
+	conn.ack = syn.seg.seq + 1
+	conn.seq = rand.Uint32()
+
+	mux.register(key, recvCh)
+	abort := func() { mux.unregister(key) }
+
+	synAckSeq := conn.seq
+	if err := conn.sendTCP(tcpFlagSYN|tcpFlagACK, conn.seq, conn.ack, nil); err != nil {
+		abort()
+		return nil, err
+	}
+	conn.seq++
+
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		if time.Now().After(deadline) {
+			abort()
+			return nil, fmt.Errorf("timeout waiting for final ACK")
+		}
+		select {
+		case seg := <-recvCh:
+			if seg.flags&tcpFlagACK != 0 && seg.ack == synAckSeq+1 {
+				conn.established = true
+				conn.muxKey = key
+				conn.mux = mux
+				conn.sendUnacked = conn.seq
+				go conn.backgroundReader()
+				return &YggConn{conn: conn}, nil
+			}
+			if seg.flags&tcpFlagSYN != 0 {
+				conn.sendTCP(tcpFlagSYN|tcpFlagACK, synAckSeq, conn.ack, nil)
+			}
+		case <-time.After(2 * time.Second):
+			conn.sendTCP(tcpFlagSYN|tcpFlagACK, synAckSeq, conn.ack, nil)
+		}
+	}
+}
+
+// Close stops the listener. A goroutine blocked in Accept() returns an
+// error within ~500ms.
+func (l *YggListener) Close() error {
+	l.closed.Store(true)
+	if mux != nil {
+		mux.unregisterListener(l.port)
+	}
+	return nil
+}
+
+// Port returns the local port this listener is bound to.
+func (l *YggListener) Port() int { return int(l.port) }
+
 // ── Packet multiplexer ────────────────────────────────────────────────────────
 
 type connKey struct {
@@ -189,19 +310,32 @@ type tcpSegment struct {
 	payload []byte
 }
 
+// inboundSyn carries enough information about a fresh inbound SYN packet
+// (one that doesn't match any already-registered connKey) for a listener's
+// Accept() to complete the handshake and learn the remote's full address.
+type inboundSyn struct {
+	remoteIP   []byte // 16-byte Yggdrasil IPv6 address of the connecting peer
+	remotePort uint16
+	seg        tcpSegment
+}
+
 type packetMux struct {
 	rw       io.ReadWriter
 	mu       sync.RWMutex
 	conns    map[connKey]chan<- tcpSegment
 	udpMu    sync.RWMutex
 	udpConns map[uint16]chan<- []byte // keyed by our local (dst) port only — UDP is connectionless
+
+	listenMu  sync.RWMutex
+	listeners map[uint16]chan inboundSyn // keyed by our local listening port
 }
 
 func newPacketMux(rw io.ReadWriter) *packetMux {
 	return &packetMux{
-		rw:       rw,
-		conns:    make(map[connKey]chan<- tcpSegment),
-		udpConns: make(map[uint16]chan<- []byte),
+		rw:        rw,
+		conns:     make(map[connKey]chan<- tcpSegment),
+		udpConns:  make(map[uint16]chan<- []byte),
+		listeners: make(map[uint16]chan inboundSyn),
 	}
 }
 
@@ -227,6 +361,18 @@ func (m *packetMux) unregisterUDP(localPort uint16) {
 	m.udpMu.Lock()
 	delete(m.udpConns, localPort)
 	m.udpMu.Unlock()
+}
+
+func (m *packetMux) registerListener(port uint16, ch chan inboundSyn) {
+	m.listenMu.Lock()
+	m.listeners[port] = ch
+	m.listenMu.Unlock()
+}
+
+func (m *packetMux) unregisterListener(port uint16) {
+	m.listenMu.Lock()
+	delete(m.listeners, port)
+	m.listenMu.Unlock()
 }
 
 func (m *packetMux) run(stop <-chan struct{}) {
@@ -269,10 +415,14 @@ func (m *packetMux) handleTCP(pkt []byte) {
 		return
 	}
 
-	dport := binary.BigEndian.Uint16(tcp[0:2]) // remote src → our dst
-	sport := binary.BigEndian.Uint16(tcp[2:4]) // remote dst → our src
+	// Per RFC 793, bytes 0-1 of the TCP header are the SENDER's ("source")
+	// port and bytes 2-3 are the port this packet is addressed TO
+	// ("destination"). Since we're the receiver here, "source" always means
+	// the remote peer's port, and "destination" always means our own port.
+	remoteSrcPort := binary.BigEndian.Uint16(tcp[0:2])
+	ourDstPort := binary.BigEndian.Uint16(tcp[2:4])
 
-	key := connKey{srcPort: sport, dstPort: dport}
+	key := connKey{srcPort: ourDstPort, dstPort: remoteSrcPort}
 
 	dataOffset := int((tcp[12] >> 4) * 4)
 	var payload []byte
@@ -296,6 +446,24 @@ func (m *packetMux) handleTCP(pkt []byte) {
 		select {
 		case ch <- seg:
 		default:
+		}
+		return
+	}
+
+	// No established connection for this key. If it's a fresh SYN (not a
+	// SYN-ACK, which would be a reply to something we never sent), check
+	// whether a listener is bound to the port it's addressed to.
+	if seg.flags&tcpFlagSYN != 0 && seg.flags&tcpFlagACK == 0 {
+		m.listenMu.RLock()
+		lch, lok := m.listeners[ourDstPort]
+		m.listenMu.RUnlock()
+		if lok {
+			remoteIP := make([]byte, 16)
+			copy(remoteIP, pkt[8:24]) // IPv6 header source address
+			select {
+			case lch <- inboundSyn{remoteIP: remoteIP, remotePort: remoteSrcPort, seg: seg}:
+			default:
+			}
 		}
 	}
 }
@@ -329,20 +497,42 @@ func (m *packetMux) handleUDP(pkt []byte) {
 }
 
 // ── TCP connection ────────────────────────────────────────────────────────────
+//
+// This is a minimal userspace TCP implementation. Unlike a real TCP stack it
+// has no retransmission of data segments and no out-of-order/SACK handling —
+// loss on a data segment is not recovered (acceptable for this app's use:
+// short-lived SOCKS/XMPP/speedtest connections over a generally-reliable
+// mesh transport). It DOES implement basic sliding-window flow control
+// (see sendUnacked/cond below): Write() blocks until previously-sent bytes
+// are acknowledged by the remote, which is essential both for correctness
+// under a slow/throttled link and for producing honest throughput numbers
+// in the peer-to-peer speed test.
+
+const sendWindow = 256 * 1024 // bytes-in-flight cap
 
 type tcpConn struct {
-	src, dst        []byte
+	src, dst         []byte
 	srcPort, dstPort uint16
-	rw              io.Writer
-	mu              sync.Mutex
-	seq, ack        uint32
-	recvBuf         []byte
-	recvCh          chan tcpSegment
-	closed          bool
-	established     bool
-	muxKey          connKey
-	mux             *packetMux
-	once            sync.Once
+	rw               io.Writer
+
+	mu          sync.Mutex
+	cond        *sync.Cond // guards/wakes on: recvBuf, sendUnacked, closed
+	seq, ack    uint32
+	sendUnacked uint32 // seq of the oldest byte we've sent but isn't yet ACKed
+	recvBuf     []byte
+	closed      bool
+	established bool
+	muxKey      connKey
+	mux         *packetMux
+	once        sync.Once
+	recvCh      chan tcpSegment // fed by mux; drained exclusively by backgroundReader
+	stopReader  chan struct{}
+}
+
+// ackAdvanced reports whether newAck is strictly ahead of oldAck in TCP
+// sequence-number space (handles the rare wraparound case correctly).
+func ackAdvanced(newAck, oldAck uint32) bool {
+	return int32(newAck-oldAck) > 0
 }
 
 func (c *tcpConn) handshake(ctx context.Context) error {
@@ -380,70 +570,131 @@ func (c *tcpConn) handshake(ctx context.Context) error {
 	}
 }
 
-func (c *tcpConn) Read(buf []byte) (int, error) {
+// backgroundReader continuously drains recvCh — the SOLE consumer of that
+// channel — for the lifetime of the connection. It updates recvBuf (for
+// Read() to pick up), advances sendUnacked on incoming ACKs (to unblock a
+// pending Write()), and answers data segments with our own ACK. Splitting
+// this from Read() is what lets Write() learn about ACK progress even when
+// nothing is calling Read() concurrently (e.g. during a pure upload test).
+func (c *tcpConn) backgroundReader() {
 	for {
-		c.mu.Lock()
-		if len(c.recvBuf) > 0 {
-			n := copy(buf, c.recvBuf)
-			c.recvBuf = c.recvBuf[n:]
-			c.mu.Unlock()
-			return n, nil
-		}
-		if c.closed {
-			c.mu.Unlock()
-			return 0, io.EOF
-		}
-		c.mu.Unlock()
-
-		// Wait for data from mux
 		select {
 		case seg, ok := <-c.recvCh:
-			if !ok { return 0, io.EOF }
-			if seg.flags&tcpFlagRST != 0 {
-				c.closed = true
-				return 0, io.EOF
+			if !ok {
+				return
 			}
-			if seg.flags&tcpFlagFIN != 0 {
-				c.closed = true
-				c.ack++
-				c.sendTCP(tcpFlagACK, c.seq, c.ack, nil)
-				return 0, io.EOF
+			if c.handleSegment(seg) {
+				return
 			}
-			if len(seg.payload) > 0 {
-				c.mu.Lock()
-				c.recvBuf = append(c.recvBuf, seg.payload...)
-				c.ack += uint32(len(seg.payload))
-				c.mu.Unlock()
-				c.sendTCP(tcpFlagACK, c.seq, c.ack, nil)
-			}
-		case <-time.After(100 * time.Millisecond):
+		case <-c.stopReader:
+			return
 		}
 	}
 }
 
-func (c *tcpConn) Write(data []byte) (int, error) {
+// handleSegment processes one incoming segment. Returns true if the
+// connection has reached a terminal state and backgroundReader should stop.
+func (c *tcpConn) handleSegment(seg tcpSegment) (stop bool) {
 	c.mu.Lock()
-	if c.closed {
-		c.mu.Unlock()
-		return 0, io.EOF
-	}
-	seq := c.seq
-	c.seq += uint32(len(data))
-	ack := c.ack
-	c.mu.Unlock()
 
-	// Send in chunks of 1400 bytes
+	if seg.flags&tcpFlagRST != 0 {
+		c.closed = true
+		c.cond.Broadcast()
+		c.mu.Unlock()
+		return true
+	}
+
+	if seg.flags&tcpFlagACK != 0 && ackAdvanced(seg.ack, c.sendUnacked) {
+		c.sendUnacked = seg.ack
+		c.cond.Broadcast() // wake a Write() blocked on window space
+	}
+
+	if seg.flags&tcpFlagFIN != 0 {
+		c.closed = true
+		c.ack++
+		seq := c.seq
+		ack := c.ack
+		c.cond.Broadcast()
+		c.mu.Unlock()
+		c.sendTCP(tcpFlagACK, seq, ack, nil)
+		if c.mux != nil {
+			c.mux.unregister(c.muxKey)
+		}
+		return true
+	}
+
+	if len(seg.payload) > 0 {
+		c.recvBuf = append(c.recvBuf, seg.payload...)
+		c.ack += uint32(len(seg.payload))
+		seq := c.seq
+		ack := c.ack
+		c.cond.Broadcast() // wake a Read() blocked waiting for data
+		c.mu.Unlock()
+		c.sendTCP(tcpFlagACK, seq, ack, nil)
+		return false
+	}
+
+	c.mu.Unlock()
+	return false
+}
+
+func (c *tcpConn) Read(buf []byte) (int, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for len(c.recvBuf) == 0 && !c.closed {
+		c.cond.Wait()
+	}
+	if len(c.recvBuf) > 0 {
+		n := copy(buf, c.recvBuf)
+		c.recvBuf = c.recvBuf[n:]
+		return n, nil
+	}
+	return 0, io.EOF
+}
+
+// Write sends data, splitting it into segments of at most 1400 bytes and
+// pacing them with a sliding window: it blocks until enough previously-sent
+// bytes have been ACKed by the remote before sending more, so the call
+// genuinely reflects the achievable network throughput instead of just the
+// rate of handing packets to the local Yggdrasil core's internal queue.
+func (c *tcpConn) Write(data []byte) (int, error) {
 	const maxSeg = 1400
 	sent := 0
 	for sent < len(data) {
-		end := sent + maxSeg
-		if end > len(data) { end = len(data) }
-		if err := c.sendTCP(tcpFlagACK, seq+uint32(sent), ack, data[sent:end]); err != nil {
+		c.mu.Lock()
+		for !c.closed {
+			inFlight := c.seq - c.sendUnacked
+			if inFlight < sendWindow {
+				break
+			}
+			c.cond.Wait()
+		}
+		if c.closed {
+			c.mu.Unlock()
+			return sent, io.EOF
+		}
+
+		avail := uint32(sendWindow) - (c.seq - c.sendUnacked)
+		chunk := uint32(maxSeg)
+		if avail < chunk {
+			chunk = avail
+		}
+		remaining := uint32(len(data) - sent)
+		if chunk > remaining {
+			chunk = remaining
+		}
+
+		seq := c.seq
+		ack := c.ack
+		c.seq += chunk
+		c.mu.Unlock()
+
+		if err := c.sendTCP(tcpFlagACK, seq, ack, data[sent:sent+int(chunk)]); err != nil {
 			return sent, err
 		}
-		sent = end
+		sent += int(chunk)
 	}
-	return len(data), nil
+	return sent, nil
 }
 
 func (c *tcpConn) Close() error {
@@ -452,11 +703,13 @@ func (c *tcpConn) Close() error {
 		c.closed = true
 		seq := c.seq
 		ack := c.ack
+		c.cond.Broadcast()
 		c.mu.Unlock()
 		c.sendTCP(tcpFlagFIN|tcpFlagACK, seq, ack, nil)
 		if c.mux != nil {
 			c.mux.unregister(c.muxKey)
 		}
+		close(c.stopReader)
 	})
 	return nil
 }
@@ -612,32 +865,19 @@ func (c *YggConn) Read(buf []byte) (int, error)  { return c.conn.Read(buf) }
 func (c *YggConn) Write(buf []byte) (int, error) { return c.conn.Write(buf) }
 func (c *YggConn) Close() error                  { return c.conn.Close() }
 
-// GetPeersJSON returns JSON array of peers with status, latency and traffic.
+// GetPeersJSON returns JSON array of peers with their online status.
 func GetPeersJSON() string {
 	if !running.Load() || yggCore == nil {
 		return "[]"
 	}
 	type peerInfo struct {
-		URI       string `json:"uri"`
-		Up        bool   `json:"up"`
-		LatencyMs int64  `json:"latency_ms"` // -1 when not yet measured
-		RXBytes   uint64 `json:"rx_bytes"`
-		TXBytes   uint64 `json:"tx_bytes"`
+		URI string `json:"uri"`
+		Up  bool   `json:"up"`
 	}
 	peers := yggCore.GetPeers()
 	result := make([]peerInfo, 0, len(peers))
 	for _, p := range peers {
-		latMs := int64(-1)
-		if p.Latency > 0 {
-			latMs = p.Latency.Milliseconds()
-		}
-		result = append(result, peerInfo{
-			URI:       p.URI,
-			Up:        p.Up,
-			LatencyMs: latMs,
-			RXBytes:   p.RXBytes,
-			TXBytes:   p.TXBytes,
-		})
+		result = append(result, peerInfo{URI: p.URI, Up: p.Up})
 	}
 	data, err := json.Marshal(result)
 	if err != nil {

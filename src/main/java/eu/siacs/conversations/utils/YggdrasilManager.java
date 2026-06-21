@@ -4,7 +4,6 @@ import android.content.Context;
 import android.util.Log;
 import eu.siacs.conversations.ui.YggdrasilPeersActivity;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 
 import java.io.IOException;
@@ -198,32 +197,22 @@ public class YggdrasilManager {
      *   [0] = 1 if the peer is currently up, 0 otherwise
      *   [1] = latency in milliseconds, or -1 if not yet measured
      */
-    public Map<String, long[]> getPeerStats() {
-        if (!isRunning()) return new java.util.HashMap<>();
-        try {
-            final String json = yggmobile.Yggmobile.getPeersJSON();
-            final Map<String, long[]> result = new java.util.HashMap<>();
-            final org.json.JSONArray arr = new org.json.JSONArray(json);
-            for (int i = 0; i < arr.length(); i++) {
-                final org.json.JSONObject obj = arr.getJSONObject(i);
-                final String uri       = obj.getString("uri");
-                final boolean up       = obj.optBoolean("up", false);
-                final long latencyMs   = obj.optLong("latency_ms", -1L);
-                result.put(uri, new long[]{up ? 1L : 0L, latencyMs});
-            }
-            return result;
-        } catch (final Exception e) {
-            return new java.util.HashMap<>();
-        }
-    }
-
     public Set<String> getConnectedPeers() {
-        final Map<String, long[]> stats = getPeerStats();
-        final Set<String> connected = new HashSet<>();
-        for (final Map.Entry<String, long[]> e : stats.entrySet()) {
-            if (e.getValue()[0] == 1L) connected.add(e.getKey());
+        if (!isRunning()) return new HashSet<>();
+        try {
+            String json = yggmobile.Yggmobile.getPeersJSON();
+            Set<String> connected = new HashSet<>();
+            org.json.JSONArray arr = new org.json.JSONArray(json);
+            for (int i = 0; i < arr.length(); i++) {
+                org.json.JSONObject obj = arr.getJSONObject(i);
+                if (obj.optBoolean("up", false)) {
+                    connected.add(obj.getString("uri"));
+                }
+            }
+            return connected;
+        } catch (Exception e) {
+            return new HashSet<>();
         }
-        return connected;
     }
 
     public void updatePeers(Context context) {
