@@ -17,7 +17,6 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -37,17 +36,6 @@ public class YggdrasilManager {
     public static final String TAG = "YggdrasilManager";
     public static final int SOCKS_PORT = 1080;
 
-    private static final List<String> DEFAULT_PEERS = Arrays.asList(
-        "tcp://de1.mimir.im:7743?key=1bb8affffffff5ef2b5157b691dc1dd13875c1ec90e789e73bce03af983c4420",
-        "tcp://de2.mimir.im:7743?key=0dedeefeffe7e36dd503d83ac8314859ef2601e0841b6d95fb6168501413c58e",
-        "tcp://sk1.mimir.im:7743?key=0000000003782d918d36b649e77d70a80322b22be41d4b25455bd81f6e58580f",
-        "tcp://sk2.mimir.im:7743?key=00ffed7fdfffa148ab3b01a9c53c20a7bcc8683f621598943f364fcdba034bef",
-        "tcp://us1.mimir.im:7743?key=00ff9bffdbffdd6bd9a2151915d9474545c50d324f7b282bff33ef7c402ebe94",
-        "tcp://45.95.202.21:12403",
-        "tcp://51.15.204.214:12345",
-        "tcp://62.210.85.80:39565"
-    );
-
     private static final YggdrasilManager INSTANCE = new YggdrasilManager();
     private final AtomicBoolean running = new AtomicBoolean(false);
     private ServerSocket serverSocket;
@@ -57,6 +45,15 @@ public class YggdrasilManager {
     private ConnectivityManager connectivityManager;
     private ConnectivityManager.NetworkCallback networkCallback;
 
+    // Single-threaded executor that owns the entire start/stop/restart
+    // lifecycle. Every public mutation (start/stop/updatePeers) is queued
+    // onto this one thread instead of racing on the `running` flag from
+    // whichever caller thread happens to invoke it — this guarantees rapid
+    // successive peer-list edits are applied in order, one after another,
+    // instead of silently dropped when a previous restart hasn't finished
+    // flipping `running` yet.
+    private final ExecutorService lifecycleExecutor = Executors.newSingleThreadExecutor();
+
     private YggdrasilManager() {}
 
     public static YggdrasilManager getInstance() { return INSTANCE; }
@@ -64,20 +61,24 @@ public class YggdrasilManager {
     public String getLastError() { return lastError; }
 
     public void start(Context context) {
-        if (running.get()) return;
         appContext = context.getApplicationContext();
-        new Thread(() -> startInternal(), "YggdrasilStart").start();
+        lifecycleExecutor.submit(this::startInternal);
     }
 
     private synchronized void startInternal() {
         if (running.get()) return;
         try {
             List<String> peerList = YggdrasilPeersActivity.getEnabledPeers(appContext);
-            if (peerList.isEmpty()) peerList = DEFAULT_PEERS;
+            if (peerList.isEmpty()) {
+                Log.w(TAG, "startInternal: 0 peers enabled — starting node with no explicit "
+                        + "peers (it will only find peers via local network discovery, if any)");
+            }
             String peers = String.join("\n", peerList);
             Log.i(TAG, "startInternal: starting Yggdrasil node with " + peerList.size() + " peer(s):");
             for (String p : peerList) Log.i(TAG, "startInternal:   - " + p);
-            yggmobile.Yggmobile.start(peers);
+            String keyPath = new java.io.File(appContext.getFilesDir(), "ygg_identity.key")
+                    .getAbsolutePath();
+            yggmobile.Yggmobile.start(peers, keyPath);
             // Give gVisor stack a moment to initialize
             Thread.sleep(500);
             String addr = yggmobile.Yggmobile.getAddress();
@@ -224,19 +225,22 @@ public class YggdrasilManager {
     }
 
     public void updatePeers(Context context) {
-        if (!isRunning()) {
-            Log.i(TAG, "updatePeers: not running, ignoring");
-            return;
-        }
-        List<String> enabled = YggdrasilPeersActivity.getEnabledPeers(context);
-        Log.i(TAG, "updatePeers: restarting node with " + enabled.size() + " enabled peer(s):");
-        for (String p : enabled) Log.i(TAG, "updatePeers:   - " + p);
-        // Restart with new peer list
-        stop();
-        start(context);
+        appContext = context.getApplicationContext();
+        Log.i(TAG, "updatePeers: queueing restart");
+        lifecycleExecutor.submit(() -> {
+            List<String> enabled = YggdrasilPeersActivity.getEnabledPeers(appContext);
+            Log.i(TAG, "updatePeers: restarting node with " + enabled.size() + " enabled peer(s):");
+            for (String p : enabled) Log.i(TAG, "updatePeers:   - " + p);
+            stopInternal();
+            startInternal();
+        });
     }
 
     public synchronized void stop() {
+        stopInternal();
+    }
+
+    private synchronized void stopInternal() {
         if (!running.get()) return;
         Log.i(TAG, "stop: stopping Yggdrasil node and SOCKS proxy");
         running.set(false);

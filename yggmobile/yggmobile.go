@@ -3,20 +3,26 @@ package yggmobile
 
 import (
 	"context"
+	cryptorand "crypto/rand"
+	"crypto/ed25519"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
+	"math/big"
 	"math/rand"
 	"net"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	golog "github.com/gologme/log"
-	"github.com/yggdrasil-network/yggdrasil-go/src/config"
 	"github.com/yggdrasil-network/yggdrasil-go/src/core"
 	"github.com/yggdrasil-network/yggdrasil-go/src/ipv6rwc"
 )
@@ -35,7 +41,18 @@ var (
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-func Start(peers string) error {
+// Start brings up the embedded Yggdrasil node using the given newline-
+// separated peer URI list, and the given keyFilePath for a persisted
+// node identity.
+//
+// keyFilePath should be a stable, writable path (e.g. inside the app's
+// internal files directory). On first run no key exists there yet, so a
+// fresh ed25519 identity is generated and saved to that path. On every
+// subsequent call (including every peer-list-triggered restart) the same
+// key is loaded back, so the node's Yggdrasil address stays stable across
+// restarts instead of changing every time. Pass an empty string to opt
+// out of persistence (keeps the old random-identity-per-call behaviour).
+func Start(peers string, keyFilePath string) error {
 	mu.Lock()
 	defer mu.Unlock()
 	if running.Load() {
@@ -48,7 +65,22 @@ func Start(peers string) error {
 	logger.EnableLevel("warn")
 	logger.EnableLevel("info")
 
-	cfg := config.GenerateConfig()
+	priv, loadedExisting, err := loadOrCreateIdentity(keyFilePath)
+	if err != nil {
+		return fmt.Errorf("identity: %w", err)
+	}
+	cert, err := selfSignedCertFromKey(priv)
+	if err != nil {
+		return fmt.Errorf("identity cert: %w", err)
+	}
+	if !loadedExisting && keyFilePath != "" {
+		if werr := os.WriteFile(keyFilePath, priv, 0600); werr != nil {
+			// Not fatal: the node can still run, it'll just generate a new
+			// identity again next time since persistence failed to write.
+			log.Printf("yggmobile: warning: could not persist identity key: %v", werr)
+		}
+	}
+
 	opts := []core.SetupOption{}
 	for _, peer := range strings.Split(peers, "\n") {
 		peer = strings.TrimSpace(peer)
@@ -57,8 +89,7 @@ func Start(peers string) error {
 		}
 	}
 
-	var err error
-	yggCore, err = core.New(cfg.Certificate, logger, opts...)
+	yggCore, err = core.New(cert, logger, opts...)
 	if err != nil {
 		return fmt.Errorf("core: %w", err)
 	}
@@ -70,7 +101,11 @@ func Start(peers string) error {
 	go mux.run(stopCh)
 
 	running.Store(true)
-	log.Printf("yggmobile: started addr=%s", address)
+	identitySrc := "freshly generated"
+	if loadedExisting {
+		identitySrc = "persisted"
+	}
+	log.Printf("yggmobile: started addr=%s (identity %s)", address, identitySrc)
 	return nil
 }
 
@@ -86,6 +121,63 @@ func Stop() {
 	if yggCore != nil { yggCore.Stop(); yggCore = nil }
 	mux = nil
 	address = ""
+}
+
+// ── Persisted node identity ──────────────────────────────────────────────────
+//
+// yggdrasil-go derives a node's overlay address deterministically from its
+// public key. config.GenerateConfig() (the old approach) generates a brand
+// new random keypair on every call, which meant the device's Yggdrasil
+// address changed on every single restart (e.g. every peer-list edit).
+// These helpers persist the raw ed25519 private key to a small file and
+// reuse it, giving the node a stable identity/address across restarts,
+// while only depending on Go's standard library (crypto/ed25519,
+// crypto/tls, crypto/x509) rather than yggdrasil-go's internal config
+// struct layout.
+
+// loadOrCreateIdentity returns (privateKey, loadedFromDisk, error).
+func loadOrCreateIdentity(keyFilePath string) (ed25519.PrivateKey, bool, error) {
+	if keyFilePath != "" {
+		if data, err := os.ReadFile(keyFilePath); err == nil {
+			if len(data) == ed25519.PrivateKeySize {
+				return ed25519.PrivateKey(data), true, nil
+			}
+			log.Printf("yggmobile: identity file has unexpected size %d, regenerating", len(data))
+		}
+	}
+	_, priv, err := ed25519.GenerateKey(cryptorand.Reader)
+	if err != nil {
+		return nil, false, err
+	}
+	return priv, false, nil
+}
+
+// selfSignedCertFromKey builds a long-lived self-signed TLS certificate
+// bound to the given ed25519 key, exactly the shape yggdrasil-go's core
+// expects from config.GenerateConfig().Certificate, but reproducible from
+// a stable key instead of always-random.
+func selfSignedCertFromKey(priv ed25519.PrivateKey) (tls.Certificate, error) {
+	pub, ok := priv.Public().(ed25519.PublicKey)
+	if !ok {
+		return tls.Certificate{}, fmt.Errorf("unexpected public key type")
+	}
+	template := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "yggdrasil"},
+		NotBefore:             time.Now().Add(-24 * time.Hour),
+		NotAfter:              time.Now().AddDate(100, 0, 0),
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+		IsCA:                  true,
+		BasicConstraintsValid: true,
+	}
+	der, err := x509.CreateCertificate(cryptorand.Reader, template, template, pub, priv)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+	return tls.Certificate{
+		Certificate: [][]byte{der},
+		PrivateKey:  priv,
+	}, nil
 }
 
 func GetAddress() string { return address }
