@@ -156,10 +156,10 @@ func loadOrCreateIdentity(keyFilePath string) (ed25519.PrivateKey, bool, error) 
 // bound to the given ed25519 key, exactly the shape yggdrasil-go's core
 // expects from config.GenerateConfig().Certificate, but reproducible from
 // a stable key instead of always-random.
-func selfSignedCertFromKey(priv ed25519.PrivateKey) (tls.Certificate, error) {
+func selfSignedCertFromKey(priv ed25519.PrivateKey) (*tls.Certificate, error) {
 	pub, ok := priv.Public().(ed25519.PublicKey)
 	if !ok {
-		return tls.Certificate{}, fmt.Errorf("unexpected public key type")
+		return nil, fmt.Errorf("unexpected public key type")
 	}
 	template := &x509.Certificate{
 		SerialNumber:          big.NewInt(1),
@@ -172,9 +172,9 @@ func selfSignedCertFromKey(priv ed25519.PrivateKey) (tls.Certificate, error) {
 	}
 	der, err := x509.CreateCertificate(cryptorand.Reader, template, template, pub, priv)
 	if err != nil {
-		return tls.Certificate{}, err
+		return nil, err
 	}
-	return tls.Certificate{
+	return &tls.Certificate{
 		Certificate: [][]byte{der},
 		PrivateKey:  priv,
 	}, nil
