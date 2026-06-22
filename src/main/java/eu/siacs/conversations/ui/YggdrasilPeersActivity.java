@@ -39,12 +39,13 @@ public class YggdrasilPeersActivity extends AppCompatActivity {
     public static final String PREFS_NAME = "yggdrasil_peers";
     public static final String KEY_PEERS  = "peers_json";
 
-    // Default peers (used only on first launch, no mimir)
+    // Default peers (used only on first launch). 51.15.204.214,
+    // 62.210.85.80 and yggpeer.tilde.green were dropped: confirmed via the
+    // official Yggdrasil app that the peer link itself comes up fine but
+    // routing to the actual XMPP server fails in this region (ENETUNREACH /
+    // SYN-ACK timeout), while the two remaining peers route correctly.
     private static final String[] DEFAULT_PEERS = {
         "tcp://45.95.202.21:12403",
-        "tcp://51.15.204.214:12345",
-        "tcp://62.210.85.80:39565",
-        "tcp://yggpeer.tilde.green:53299",
         "tls://109.176.250.101:65534"
     };
 
